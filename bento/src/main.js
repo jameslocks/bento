@@ -6,6 +6,7 @@ import { getSkin } from './skins/index.js'
 function init() {
   const canvas = document.getElementById('bento-canvas')
   const fallback = document.getElementById('fallback')
+  const skinButtons = document.querySelectorAll('.skin-btn')
 
   if (!canvas || !canvas.getContext) {
     if (fallback) fallback.classList.remove('hidden')
@@ -15,6 +16,18 @@ function init() {
   const sound = new SoundEngine()
   const bento = new Bento(canvas, defaultSkin, sound)
   bento.start()
+
+  window.addEventListener('resize', () => bento._resize())
+
+  skinButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      skinButtons.forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      const skin = getSkin(btn.dataset.skin)
+      bento.setSkin(skin)
+      sound.boop()
+    })
+  })
 
   window.__bento = bento
 }

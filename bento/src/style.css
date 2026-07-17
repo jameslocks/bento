@@ -37,3 +37,31 @@ html, body {
   text-align: center;
   padding: 2rem;
 }
+
+#skin-selector {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+}
+
+.skin-btn {
+  padding: 6px 14px;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  background: white;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.skin-btn:hover {
+  border-color: #4fc3f7;
+}
+
+.skin-btn.active {
+  border-color: #4fc3f7;
+  background: #e1f5fe;
+}
