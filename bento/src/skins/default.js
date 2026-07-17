@@ -49,28 +49,45 @@ export const defaultSkin = {
     const eyeY = cy + 1
     const blend = state.blend || (state.mood === 'happy' ? 1 : 0)
 
+    // Sleeping — closed curved eyes
+    if (state.mood === 'sleeping') {
+      const sleepy = Math.min(1, Math.max(0, state.napDuration / 0.5))
+      ctx.strokeStyle = palette.eye
+      ctx.lineWidth = 1.2
+      ctx.beginPath()
+      ctx.arc(cx - 4, eyeY + 1, 2.5, Math.PI, 0, true)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(cx + 4, eyeY + 1, 2.5, Math.PI, 0, true)
+      ctx.stroke()
+      return
+    }
+
+    // Blink (only during idle, not during happy transition)
     if (state.blink && blend < 0.5) {
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1
       ctx.beginPath()
-      ctx.moveTo(cx - 5.5, eyeY)
-      ctx.lineTo(cx - 2.5, eyeY)
+      ctx.moveTo(cx - 5.5 + (state.lookX || 0), eyeY)
+      ctx.lineTo(cx - 2.5 + (state.lookX || 0), eyeY)
       ctx.stroke()
       ctx.beginPath()
-      ctx.moveTo(cx + 2.5, eyeY)
-      ctx.lineTo(cx + 5.5, eyeY)
+      ctx.moveTo(cx + 2.5 + (state.lookX || 0), eyeY)
+      ctx.lineTo(cx + 5.5 + (state.lookX || 0), eyeY)
       ctx.stroke()
       return
     }
 
     const eyeR = 1.5 + blend * 1.0
+    const lx = state.lookX || 0
+    const ly = state.lookY || 0
 
     ctx.fillStyle = palette.eye
     ctx.beginPath()
-    ctx.arc(cx - 4, eyeY, eyeR, 0, Math.PI * 2)
+    ctx.arc(cx - 4 + lx, eyeY + ly, eyeR, 0, Math.PI * 2)
     ctx.fill()
     ctx.beginPath()
-    ctx.arc(cx + 4, eyeY, eyeR, 0, Math.PI * 2)
+    ctx.arc(cx + 4 + lx, eyeY + ly, eyeR, 0, Math.PI * 2)
     ctx.fill()
 
     if (blend > 0.1) {
