@@ -123,6 +123,42 @@ export const defaultSkin = {
       ctx.fillStyle = '#ff4081'
       this._drawHeart(ctx, cx - 4, eyeY, 2.5)
       this._drawHeart(ctx, cx + 4, eyeY, 2.5)
+    } else if (state.event === 'curious') {
+      const t = state.eventTime / 1.5
+      const lx = state.lookX || 0
+      ctx.fillStyle = palette.eye
+      ctx.beginPath()
+      ctx.arc(cx - 4 + lx, eyeY - 1 - t * 0.5, 2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(cx + 4 + lx, eyeY - 1 - t * 0.5, 2, 0, Math.PI * 2)
+      ctx.fill()
+    } else if (state.event === 'excited') {
+      ctx.fillStyle = palette.eye
+      ctx.beginPath()
+      ctx.arc(cx - 4, eyeY, 1.8, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(cx + 4, eyeY, 1.8, 0, Math.PI * 2)
+      ctx.fill()
+      const sparkle = Math.sin(state.eventTime * 15) > 0.5
+      if (sparkle) {
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'
+        ctx.beginPath()
+        ctx.arc(cx - 3, eyeY - 1, 0.8, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + 5, eyeY - 1, 0.8, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    } else if (state.event === 'confused') {
+      ctx.fillStyle = palette.eye
+      ctx.beginPath()
+      ctx.arc(cx - 4, eyeY, 2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(cx + 5, eyeY + 1, 1.2, 0, Math.PI * 2)
+      ctx.fill()
     } else if (state.blink && blend < 0.5) {
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1

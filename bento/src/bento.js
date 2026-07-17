@@ -45,11 +45,32 @@ export class Bento {
       spin: 0.5,
       sneeze: 0.4,
       rainbow: 0.8,
-      heart: 1.2
+      heart: 1.2,
+      curious: 1.5,
+      excited: 0.8,
+      confused: 1.0
     }
 
     // Surprised state (wake from sleep)
     this._surprisedTimer = 0
+
+    // Particles
+    this._particles = []
+
+    // Firefly
+    this._firefly = {
+      active: false,
+      timer: 20 + Math.random() * 20,
+      x: 16, y: 16,
+      angle: 0,
+      speed: 1.5,
+      radius: 12,
+      duration: 8,
+      elapsed: 0
+    }
+
+    // Tap reaction: 25% chance of spark+glitch instead of happy
+    this._tapGlitchChance = 0.25
 
     // Tap handler
     this._onTap = this._handleTap.bind(this)
@@ -102,7 +123,7 @@ export class Bento {
       }
     }
 
-    // Surprised state (wake from sleep)
+    // Surprised state
     if (this.mood === 'surprised') {
       this._surprisedTimer -= dt
       if (this._surprisedTimer <= 0) {
@@ -190,7 +211,7 @@ export class Bento {
       }
     }
 
-    // Nap decision (only when idle for a while)
+    // Nap decision
     if (this.mood === 'idle') {
       this._napTimer -= dt
       if (this._napTimer <= 0) {
@@ -199,6 +220,48 @@ export class Bento {
           this._napDuration = 5
         }
         this._napTimer = 20 + Math.random() * 20
+      }
+    }
+
+    // Zzz particles while sleeping
+    if (this.mood === 'sleeping' && Math.random() < dt * 0.8) {
+      this._spawnParticle(14 + Math.random() * 4, 20 + Math.random() * 4, {
+        vx: (Math.random() - 0.3) * 0.3,
+        vy: -(0.3 + Math.random() * 0.3),
+        life: 1.5 + Math.random(),
+        size: 0.4 + Math.random() * 0.4,
+        type: 'zzz'
+      })
+    }
+
+    // Firefly
+    this._firefly.timer -= dt
+    if (!this._firefly.active && this._firefly.timer <= 0) {
+      this._firefly.active = true
+      this._firefly.angle = Math.random() * Math.PI * 2
+      this._firefly.elapsed = 0
+    }
+    if (this._firefly.active) {
+      this._firefly.elapsed += dt
+      this._firefly.angle += this._firefly.speed * dt
+      this._firefly.x = 16 + Math.cos(this._firefly.angle) * this._firefly.radius
+      this._firefly.y = 16 + Math.sin(this._firefly.angle) * (this._firefly.radius * 0.6)
+      if (this._firefly.elapsed >= this._firefly.duration) {
+        this._firefly.active = false
+        this._firefly.timer = 20 + Math.random() * 20
+      }
+    }
+
+    // Update particles
+    for (let i = this._particles.length - 1; i >= 0; i--) {
+      const p = this._particles[i]
+      p.x += p.vx * dt * 60
+      p.y += p.vy * dt * 60
+      p.life -= dt
+      p.alpha = Math.max(0, p.life / p.maxLife)
+      p.size += dt * 0.3
+      if (p.life <= 0) {
+        this._particles.splice(i, 1)
       }
     }
   }
@@ -211,6 +274,33 @@ export class Bento {
       case 'glitch':
         this.sound.glitch()
         break
+    }
+  }
+
+  _spawnParticle(x, y, opts = {}) {
+    this._particles.push({
+      x, y,
+      vx: opts.vx || 0,
+      vy: opts.vy || 0,
+      life: opts.life || 1,
+      maxLife: opts.life || 1,
+      size: opts.size || 0.5,
+      alpha: 1,
+      type: opts.type || 'dot'
+    })
+  }
+
+  _spawnSparks() {
+    for (let i = 0; i < 8; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const speed = 1 + Math.random() * 2
+      this._spawnParticle(16, 16, {
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 0.4 + Math.random() * 0.3,
+        size: 0.3 + Math.random() * 0.3,
+        type: 'spark'
+      })
     }
   }
 
@@ -228,6 +318,18 @@ export class Bento {
       this._happyCooldown = 1.5
       this._moodBlend = 1
       this.sound.surprise()
+      this._spawnSparks()
+      return
+    }
+
+    // Random chance of spark+glitch instead of happy
+    if (Math.random() < this._tapGlitchChance) {
+      this.mood = 'idle'
+      this._event = 'glitch'
+      this._eventTime = 0
+      this._happyCooldown = 0.5
+      this.sound.glitch()
+      this._spawnSparks()
       return
     }
 
@@ -243,6 +345,8 @@ export class Bento {
     ctx.fillStyle = '#f0e6d3'
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
+    this._drawParticles(ctx)
+
     ctx.save()
     ctx.translate(0, this._getBounceOffset())
     ctx.scale(this._scale, this._scale)
@@ -251,6 +355,18 @@ export class Bento {
       const progress = this._eventTime / this._events.spin
       ctx.translate(16, 16)
       ctx.rotate(progress * Math.PI * 2)
+      ctx.translate(-16, -16)
+    }
+
+    if (this._event === 'curious') {
+      ctx.translate(16, 16)
+      ctx.rotate(0.08)
+      ctx.translate(-16, -16)
+    }
+
+    if (this._event === 'confused') {
+      ctx.translate(16, 16)
+      ctx.rotate(-0.05)
       ctx.translate(-16, -16)
     }
 
@@ -272,6 +388,54 @@ export class Bento {
     this.skin.drawEyes(ctx, this.skin.palette, state, this._time)
 
     ctx.restore()
+
+    this._drawFirefly(ctx)
+  }
+
+  _drawParticles(ctx) {
+    for (const p of this._particles) {
+      const sx = p.x * this._scale
+      const sy = p.y * this._scale + this._getBounceOffset()
+
+      if (p.type === 'zzz') {
+        ctx.fillStyle = `rgba(100, 180, 255, ${p.alpha * 0.6})`
+        ctx.font = `${Math.round(p.size * this._scale)}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.fillText('z', sx, sy)
+      } else if (p.type === 'spark') {
+        const colors = ['#ffd54f', '#ff4081', '#4fc3f7', '#69f0ae']
+        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)]
+        ctx.globalAlpha = p.alpha
+        ctx.beginPath()
+        ctx.arc(sx, sy, p.size * this._scale, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.globalAlpha = 1
+      }
+    }
+  }
+
+  _drawFirefly(ctx) {
+    if (!this._firefly.active) return
+
+    const s = this._scale
+    const bx = this._firefly.x * s
+    const by = this._firefly.y * s + this._getBounceOffset()
+    const glow = Math.sin(this._time * 4 + this._firefly.angle) * 0.3 + 0.7
+    const fadeIn = Math.min(1, this._firefly.elapsed / 0.5)
+    const fadeOut = Math.min(1, (this._firefly.duration - this._firefly.elapsed) / 0.5)
+    const alpha = glow * fadeIn * fadeOut
+
+    // Glow
+    ctx.fillStyle = `rgba(100, 255, 150, ${alpha * 0.3})`
+    ctx.beginPath()
+    ctx.arc(bx, by, 3 * s, 0, Math.PI * 2)
+    ctx.fill()
+
+    // Core
+    ctx.fillStyle = `rgba(180, 255, 200, ${alpha})`
+    ctx.beginPath()
+    ctx.arc(bx, by, 1.5 * s, 0, Math.PI * 2)
+    ctx.fill()
   }
 
   _getBounceOffset() {
@@ -297,6 +461,10 @@ export class Bento {
       const p = this._eventTime / this._events.sneeze
       if (p < 0.3) return -Math.sin(p / 0.3 * Math.PI) * 4 * this._scale
       return Math.sin((p - 0.3) / 0.7 * Math.PI) * 2 * this._scale
+    }
+
+    if (this._event === 'excited') {
+      return Math.sin(this._eventTime * 20) * 2 * this._scale
     }
 
     if (this.mood === 'sleeping') {
