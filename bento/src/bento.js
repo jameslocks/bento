@@ -223,17 +223,6 @@ export class Bento {
       }
     }
 
-    // Zzz particles while sleeping
-    if (this.mood === 'sleeping' && Math.random() < dt * 0.8) {
-      this._spawnParticle(14 + Math.random() * 4, 20 + Math.random() * 4, {
-        vx: (Math.random() - 0.3) * 0.3,
-        vy: -(0.3 + Math.random() * 0.3),
-        life: 1.5 + Math.random(),
-        size: 0.4 + Math.random() * 0.4,
-        type: 'zzz'
-      })
-    }
-
     // Firefly
     this._firefly.timer -= dt
     if (!this._firefly.active && this._firefly.timer <= 0) {
@@ -388,6 +377,16 @@ export class Bento {
     this.skin.drawHead(ctx, this.skin.palette, state, this._time)
     this.skin.drawEyes(ctx, this.skin.palette, state, this._time)
 
+    if (this.mood === 'sleeping') {
+      const bob = Math.sin(this._time * 2) * 0.6
+      const pulse = Math.sin(this._time * 2.5) * 0.15 + 0.85
+      ctx.fillStyle = `rgba(100, 200, 255, ${0.4 + pulse * 0.2})`
+      ctx.font = `${Math.round(3 * pulse)}px sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('z', 16.5 + bob * 0.2, 1 + bob)
+    }
+
     ctx.restore()
 
     this._drawFirefly(ctx)
@@ -398,12 +397,7 @@ export class Bento {
       const sx = p.x * this._scale
       const sy = p.y * this._scale + this._getBounceOffset()
 
-      if (p.type === 'zzz') {
-        ctx.fillStyle = `rgba(100, 180, 255, ${p.alpha * 0.6})`
-        ctx.font = `${Math.round(p.size * this._scale)}px sans-serif`
-        ctx.textAlign = 'center'
-        ctx.fillText('z', sx, sy)
-      } else if (p.type === 'spark') {
+      if (p.type === 'spark') {
         const colors = ['#ffd54f', '#ff4081', '#4fc3f7', '#69f0ae']
         ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)]
         ctx.globalAlpha = p.alpha
