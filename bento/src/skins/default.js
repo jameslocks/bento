@@ -39,8 +39,9 @@ export const defaultSkin = {
     const vh = 12
 
     if (state && state.event === 'rainbow') {
-      const hue = (state.eventTime / 0.8) * 360
+      const hue = (state.eventTime / 1.2) * 360
       ctx.fillStyle = `hsl(${hue}, 100%, 50%)`
+      ctx.globalAlpha = 0.3 + state.eventBlend * 0.7
     } else {
       ctx.fillStyle = palette.visor
     }
@@ -48,6 +49,7 @@ export const defaultSkin = {
     ctx.beginPath()
     ctx.roundRect(vx, vy, vw, vh, 2)
     ctx.fill()
+    if (state && state.event === 'rainbow') ctx.globalAlpha = 1
   },
 
   drawEyes(ctx, palette, state, time) {
@@ -63,8 +65,8 @@ export const defaultSkin = {
 
     // Glitch — scramble eye positions rapidly
     if (state.event === 'glitch') {
-      const scramble = Math.sin(state.eventTime * 80) * 6
-      const scrambleY = Math.cos(state.eventTime * 60) * 3
+      const scramble = Math.sin(state.eventTime * 80) * 6 * state.eventBlend
+      const scrambleY = Math.cos(state.eventTime * 60) * 3 * state.eventBlend
       ctx.fillStyle = palette.eye
       ctx.beginPath()
       ctx.arc(cx - 4 + scramble, eyeY + scrambleY, 1.5, 0, Math.PI * 2)
@@ -76,8 +78,8 @@ export const defaultSkin = {
       // Static lines
       for (let i = 0; i < 4; i++) {
         const sy = 10 + Math.sin(state.eventTime * 100 + i * 2) * 6
-        if (Math.random() > 0.6) {
-          ctx.fillStyle = `rgba(255,255,255,${0.3 + Math.random() * 0.4})`
+        if (Math.random() > 0.4) {
+          ctx.fillStyle = `rgba(255,255,255,${(0.2 + Math.random() * 0.3) * state.eventBlend})`
           ctx.fillRect(6, sy, 20, 1 + Math.random() * 2)
         }
       }
@@ -101,7 +103,7 @@ export const defaultSkin = {
       ctx.arc(cx + 4, eyeY, eyeR, 0, Math.PI * 2)
       ctx.fill()
     } else if (state.event === 'sneeze') {
-      const p = state.eventTime / 0.4
+      const p = state.eventTime / 0.6
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1.2
       if (p < 0.3) {
@@ -121,29 +123,31 @@ export const defaultSkin = {
       }
     } else if (state.event === 'heart') {
       ctx.fillStyle = '#ff4081'
-      this._drawHeart(ctx, cx - 4, eyeY, 2.5)
-      this._drawHeart(ctx, cx + 4, eyeY, 2.5)
+      ctx.globalAlpha = state.eventBlend
+      this._drawHeart(ctx, cx - 4, eyeY, 2.5 * state.eventBlend)
+      this._drawHeart(ctx, cx + 4, eyeY, 2.5 * state.eventBlend)
+      ctx.globalAlpha = 1
     } else if (state.event === 'curious') {
-      const t = state.eventTime / 1.5
-      const lx = state.lookX || 0
+      const t = state.eventTime / 2.0
+      const lx = (state.lookX || 0) * state.eventBlend
       ctx.fillStyle = palette.eye
       ctx.beginPath()
-      ctx.arc(cx - 4 + lx, eyeY - 1 - t * 0.5, 2, 0, Math.PI * 2)
+      ctx.arc(cx - 4 + lx, eyeY - 1 - t * 0.5, 1.5 + state.eventBlend * 0.5, 0, Math.PI * 2)
       ctx.fill()
       ctx.beginPath()
-      ctx.arc(cx + 4 + lx, eyeY - 1 - t * 0.5, 2, 0, Math.PI * 2)
+      ctx.arc(cx + 4 + lx, eyeY - 1 - t * 0.5, 1.5 + state.eventBlend * 0.5, 0, Math.PI * 2)
       ctx.fill()
     } else if (state.event === 'excited') {
       ctx.fillStyle = palette.eye
       ctx.beginPath()
-      ctx.arc(cx - 4, eyeY, 1.8, 0, Math.PI * 2)
+      ctx.arc(cx - 4, eyeY, 1.5 + state.eventBlend * 0.3, 0, Math.PI * 2)
       ctx.fill()
       ctx.beginPath()
-      ctx.arc(cx + 4, eyeY, 1.8, 0, Math.PI * 2)
+      ctx.arc(cx + 4, eyeY, 1.5 + state.eventBlend * 0.3, 0, Math.PI * 2)
       ctx.fill()
       const sparkle = Math.sin(state.eventTime * 15) > 0.5
       if (sparkle) {
-        ctx.fillStyle = 'rgba(255,255,255,0.9)'
+        ctx.fillStyle = `rgba(255,255,255,${0.9 * state.eventBlend})`
         ctx.beginPath()
         ctx.arc(cx - 3, eyeY - 1, 0.8, 0, Math.PI * 2)
         ctx.fill()
@@ -154,10 +158,10 @@ export const defaultSkin = {
     } else if (state.event === 'confused') {
       ctx.fillStyle = palette.eye
       ctx.beginPath()
-      ctx.arc(cx - 4, eyeY, 2, 0, Math.PI * 2)
+      ctx.arc(cx - 4, eyeY, 1.5 + state.eventBlend * 0.5, 0, Math.PI * 2)
       ctx.fill()
       ctx.beginPath()
-      ctx.arc(cx + 5, eyeY + 1, 1.2, 0, Math.PI * 2)
+      ctx.arc(cx + 5, eyeY + 1, 1.2 * state.eventBlend + 0.3, 0, Math.PI * 2)
       ctx.fill()
     } else if (state.blink && blend < 0.5) {
       ctx.strokeStyle = palette.eye

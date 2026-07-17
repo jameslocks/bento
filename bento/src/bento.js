@@ -41,14 +41,14 @@ export class Bento {
     this._eventTime = 0
     this._eventCheckTimer = 10 + Math.random() * 15
     this._events = {
-      glitch: 0.3,
-      spin: 0.5,
-      sneeze: 0.4,
-      rainbow: 0.8,
-      heart: 1.2,
-      curious: 1.5,
-      excited: 0.8,
-      confused: 1.0
+      glitch: 0.5,
+      spin: 0.8,
+      sneeze: 0.6,
+      rainbow: 1.2,
+      heart: 1.8,
+      curious: 2.0,
+      excited: 1.2,
+      confused: 1.5
     }
 
     // Surprised state (wake from sleep)
@@ -379,6 +379,7 @@ export class Bento {
       napDuration: this.mood === 'sleeping' ? this._napDuration : 0,
       event: this._event,
       eventTime: this._eventTime,
+      eventBlend: this._event ? (1 - Math.cos((this._eventTime / this._events[this._event]) * Math.PI)) / 2 : 0,
       surprisedTimer: this.mood === 'surprised' ? this._surprisedTimer : 0,
       time: this._time
     }
@@ -460,11 +461,12 @@ export class Bento {
     if (this._event === 'sneeze') {
       const p = this._eventTime / this._events.sneeze
       if (p < 0.3) return -Math.sin(p / 0.3 * Math.PI) * 4 * this._scale
-      return Math.sin((p - 0.3) / 0.7 * Math.PI) * 2 * this._scale
+      return Math.sin((p - 0.3) / 0.7 * Math.PI) * 2 * this._scale * (1 - (p - 0.3) / 0.7)
     }
 
     if (this._event === 'excited') {
-      return Math.sin(this._eventTime * 20) * 2 * this._scale
+      const blend = (1 - Math.cos((this._eventTime / this._events.excited) * Math.PI)) / 2
+      return Math.sin(this._eventTime * 20) * 2 * this._scale * blend
     }
 
     if (this.mood === 'sleeping') {
