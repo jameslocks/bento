@@ -37,11 +37,63 @@ export class SoundEngine {
   }
 
   chirp() {
-    const types = ['sine', 'triangle']
-    const freq = 700 + Math.random() * 400
-    const type = types[Math.floor(Math.random() * types.length)]
-    const dur = 0.06 + Math.random() * 0.08
-    this._play(freq, dur, type)
+    this._ensureContext()
+    if (!this._ctx) return
+
+    const now = this._ctx.currentTime
+
+    if (Math.random() > 0.4) {
+      // Single warbling chirp with harmonics
+      const osc1 = this._ctx.createOscillator()
+      const osc2 = this._ctx.createOscillator()
+      const gain = this._ctx.createGain()
+
+      osc1.type = 'sine'
+      osc2.type = 'triangle'
+
+      osc1.frequency.setValueAtTime(2200 + Math.random() * 600, now)
+      osc1.frequency.exponentialRampToValueAtTime(600 + Math.random() * 300, now + 0.05)
+      osc1.frequency.linearRampToValueAtTime(900 + Math.random() * 300, now + 0.08)
+      osc1.frequency.exponentialRampToValueAtTime(400 + Math.random() * 200, now + 0.12)
+
+      osc2.frequency.setValueAtTime(1800 + Math.random() * 400, now)
+      osc2.frequency.exponentialRampToValueAtTime(500 + Math.random() * 200, now + 0.05)
+      osc2.frequency.linearRampToValueAtTime(700 + Math.random() * 200, now + 0.08)
+      osc2.frequency.exponentialRampToValueAtTime(300 + Math.random() * 200, now + 0.12)
+
+      gain.gain.setValueAtTime(0.12, now)
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.02)
+      gain.gain.linearRampToValueAtTime(0, now + 0.12)
+
+      osc1.connect(gain)
+      osc2.connect(gain)
+      gain.connect(this._ctx.destination)
+
+      osc1.start(now)
+      osc2.start(now)
+      osc1.stop(now + 0.13)
+      osc2.stop(now + 0.13)
+    } else {
+      // Double chirp — two quick bursts
+      for (let i = 0; i < 2; i++) {
+        const t = now + i * 0.065
+        const osc = this._ctx.createOscillator()
+        const g = this._ctx.createGain()
+
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(1800 + Math.random() * 700, t)
+        osc.frequency.exponentialRampToValueAtTime(500 + Math.random() * 300, t + 0.035)
+
+        g.gain.setValueAtTime(0.12, t)
+        g.gain.linearRampToValueAtTime(0, t + 0.045)
+
+        osc.connect(g)
+        g.connect(this._ctx.destination)
+
+        osc.start(t)
+        osc.stop(t + 0.05)
+      }
+    }
   }
 
   boop() {
