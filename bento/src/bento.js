@@ -27,7 +27,7 @@ export class Bento {
     // Tap handler
     this._onTap = this._handleTap.bind(this)
     this.canvas.addEventListener('click', this._onTap)
-    this.canvas.addEventListener('touchstart', this._onTap, { passive: true })
+    this.canvas.addEventListener('touchstart', this._onTap, { passive: false })
   }
 
   _resize() {
@@ -108,7 +108,6 @@ export class Bento {
 
   _draw() {
     const ctx = this.ctx
-    const size = this._gridSize * this._scale
 
     ctx.fillStyle = '#f0e6d3'
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
