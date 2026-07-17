@@ -36,6 +36,21 @@ export class Bento {
     this._napTimer = 30 + Math.random() * 30
     this._napDuration = 0
 
+    // Random events
+    this._event = null
+    this._eventTime = 0
+    this._eventCheckTimer = 10 + Math.random() * 15
+    this._events = {
+      glitch: 0.3,
+      spin: 0.5,
+      sneeze: 0.4,
+      rainbow: 0.8,
+      heart: 1.2
+    }
+
+    // Surprised state (wake from sleep)
+    this._surprisedTimer = 0
+
     // Tap handler
     this._onTap = this._handleTap.bind(this)
     this.canvas.addEventListener('click', this._onTap)
@@ -87,6 +102,14 @@ export class Bento {
       }
     }
 
+    // Surprised state (wake from sleep)
+    if (this.mood === 'surprised') {
+      this._surprisedTimer -= dt
+      if (this._surprisedTimer <= 0) {
+        this.mood = 'happy'
+      }
+    }
+
     // Sleeping state
     if (this.mood === 'sleeping') {
       this._napDuration -= dt
@@ -101,14 +124,37 @@ export class Bento {
     }
 
     // Mood blend
-    if (this.mood === 'happy') {
+    if (this.mood === 'happy' || this.mood === 'surprised') {
       this._moodBlend = Math.min(1, this._moodBlend + dt * 3)
     } else {
       this._moodBlend = Math.max(0, this._moodBlend - dt * 5)
     }
 
-    // Blink (only when not sleeping)
-    if (this.mood !== 'sleeping') {
+    // Random events during idle
+    if (this.mood === 'idle' && !this._event) {
+      this._eventCheckTimer -= dt
+      if (this._eventCheckTimer <= 0) {
+        if (Math.random() < 0.35) {
+          const keys = Object.keys(this._events)
+          this._event = keys[Math.floor(Math.random() * keys.length)]
+          this._eventTime = 0
+          this._onEventStart(this._event)
+        }
+        this._eventCheckTimer = 10 + Math.random() * 15
+      }
+    }
+
+    // Update current event
+    if (this._event) {
+      this._eventTime += dt
+      if (this._eventTime >= this._events[this._event]) {
+        this._event = null
+        this._eventTime = 0
+      }
+    }
+
+    // Blink (not when sleeping or during events)
+    if (this.mood !== 'sleeping' && !this._event) {
       this._blinkTimer -= dt
       if (this._blinkTimer <= 0) {
         this._isBlinking = true
@@ -124,7 +170,7 @@ export class Bento {
     }
 
     // Gaze movement (idle only)
-    if (this.mood === 'idle' && !this._isBlinking) {
+    if (this.mood === 'idle' && !this._isBlinking && !this._event) {
       this._lookTimer -= dt
       if (this._lookTimer <= 0) {
         this._lookTargetX = (Math.random() - 0.5) * 3
@@ -136,7 +182,7 @@ export class Bento {
     }
 
     // Autonomous chirp (not while sleeping)
-    if (this.mood !== 'sleeping') {
+    if (this.mood !== 'sleeping' && !this._event) {
       this._chirpTimer -= dt
       if (this._chirpTimer <= 0) {
         this.sound.chirp()
@@ -157,16 +203,31 @@ export class Bento {
     }
   }
 
+  _onEventStart(event) {
+    switch (event) {
+      case 'sneeze':
+        this.sound.sneeze()
+        break
+      case 'glitch':
+        this.sound.glitch()
+        break
+    }
+  }
+
   _handleTap(e) {
     if (e.cancelable) e.preventDefault()
     if (this._happyCooldown > 0) return
 
+    this._event = null
+    this._eventTime = 0
+
     if (this.mood === 'sleeping') {
-      this.mood = 'happy'
+      this.mood = 'surprised'
+      this._surprisedTimer = 0.5
       this._happyTimer = 1.5
       this._happyCooldown = 1.5
       this._moodBlend = 1
-      this.sound.happy()
+      this.sound.surprise()
       return
     }
 
@@ -184,8 +245,14 @@ export class Bento {
 
     ctx.save()
     ctx.translate(0, this._getBounceOffset())
-
     ctx.scale(this._scale, this._scale)
+
+    if (this._event === 'spin') {
+      const progress = this._eventTime / this._events.spin
+      ctx.translate(16, 16)
+      ctx.rotate(progress * Math.PI * 2)
+      ctx.translate(-16, -16)
+    }
 
     const state = {
       mood: this.mood,
@@ -194,11 +261,14 @@ export class Bento {
       lookX: this._lookX,
       lookY: this._lookY,
       napDuration: this.mood === 'sleeping' ? this._napDuration : 0,
+      event: this._event,
+      eventTime: this._eventTime,
+      surprisedTimer: this.mood === 'surprised' ? this._surprisedTimer : 0,
       time: this._time
     }
 
-    this.skin.drawAntenna(ctx, this.skin.palette, this._time)
-    this.skin.drawHead(ctx, this.skin.palette, this._time)
+    this.skin.drawAntenna(ctx, this.skin.palette, state, this._time)
+    this.skin.drawHead(ctx, this.skin.palette, state, this._time)
     this.skin.drawEyes(ctx, this.skin.palette, state, this._time)
 
     ctx.restore()
@@ -206,6 +276,10 @@ export class Bento {
 
   _getBounceOffset() {
     const idleOffset = Math.sin(this._time * 1.5) * 1.5 * this._scale
+
+    if (this.mood === 'surprised') {
+      return -Math.sin((1 - this._surprisedTimer / 0.5) * Math.PI) * 8 * this._scale
+    }
 
     if (this.mood === 'happy') {
       const t = this._happyTimer
@@ -217,6 +291,12 @@ export class Bento {
         happyOffset = -Math.sin(t * 8) * 1.5 * Math.max(0, t / 1.2) * this._scale
       }
       return happyOffset * this._moodBlend + idleOffset * (1 - this._moodBlend)
+    }
+
+    if (this._event === 'sneeze') {
+      const p = this._eventTime / this._events.sneeze
+      if (p < 0.3) return -Math.sin(p / 0.3 * Math.PI) * 4 * this._scale
+      return Math.sin((p - 0.3) / 0.7 * Math.PI) * 2 * this._scale
     }
 
     if (this.mood === 'sleeping') {

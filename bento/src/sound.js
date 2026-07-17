@@ -102,6 +102,86 @@ export class SoundEngine {
     this._play(freq, dur, 'triangle')
   }
 
+  sneeze() {
+    this._ensureContext()
+    if (!this._ctx) return
+
+    const now = this._ctx.currentTime
+
+    const osc = this._ctx.createOscillator()
+    const gain = this._ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(600, now)
+    osc.frequency.linearRampToValueAtTime(300, now + 0.05)
+    osc.frequency.linearRampToValueAtTime(800, now + 0.08)
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.15)
+    gain.gain.setValueAtTime(0.18, now)
+    gain.gain.linearRampToValueAtTime(0, now + 0.18)
+    osc.connect(gain)
+    gain.connect(this._ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.2)
+  }
+
+  surprise() {
+    this._ensureContext()
+    if (!this._ctx) return
+
+    const now = this._ctx.currentTime
+
+    const osc1 = this._ctx.createOscillator()
+    const osc2 = this._ctx.createOscillator()
+    const gain = this._ctx.createGain()
+
+    osc1.type = 'sine'
+    osc2.type = 'triangle'
+
+    osc1.frequency.setValueAtTime(400, now)
+    osc1.frequency.exponentialRampToValueAtTime(1200, now + 0.08)
+    osc1.frequency.linearRampToValueAtTime(800, now + 0.2)
+
+    osc2.frequency.setValueAtTime(600, now)
+    osc2.frequency.exponentialRampToValueAtTime(1600, now + 0.08)
+    osc2.frequency.linearRampToValueAtTime(1000, now + 0.2)
+
+    gain.gain.setValueAtTime(0.15, now)
+    gain.gain.linearRampToValueAtTime(0.12, now + 0.05)
+    gain.gain.linearRampToValueAtTime(0, now + 0.25)
+
+    osc1.connect(gain)
+    osc2.connect(gain)
+    gain.connect(this._ctx.destination)
+
+    osc1.start(now)
+    osc2.start(now)
+    osc1.stop(now + 0.25)
+    osc2.stop(now + 0.25)
+  }
+
+  glitch() {
+    this._ensureContext()
+    if (!this._ctx) return
+
+    const now = this._ctx.currentTime
+    const osc = this._ctx.createOscillator()
+    const gain = this._ctx.createGain()
+
+    osc.type = 'sawtooth'
+    osc.frequency.setValueAtTime(80, now)
+    osc.frequency.linearRampToValueAtTime(40, now + 0.05)
+    osc.frequency.linearRampToValueAtTime(200, now + 0.1)
+    osc.frequency.linearRampToValueAtTime(30, now + 0.15)
+
+    gain.gain.setValueAtTime(0.06, now)
+    gain.gain.linearRampToValueAtTime(0.03, now + 0.05)
+    gain.gain.linearRampToValueAtTime(0, now + 0.18)
+
+    osc.connect(gain)
+    gain.connect(this._ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.2)
+  }
+
   happy() {
     this._ensureContext()
     if (!this._ctx) return

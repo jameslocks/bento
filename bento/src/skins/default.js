@@ -9,7 +9,7 @@ export const defaultSkin = {
     glow: '#ffd54f'
   },
 
-  drawHead(ctx, palette, time) {
+  drawHead(ctx, palette, state, time) {
     const cx = 16
     const cy = 16
 
@@ -37,7 +37,14 @@ export const defaultSkin = {
     const vy = cy - 6
     const vw = 20
     const vh = 12
-    ctx.fillStyle = palette.visor
+
+    if (state && state.event === 'rainbow') {
+      const hue = (state.eventTime / 0.8) * 360
+      ctx.fillStyle = `hsl(${hue}, 100%, 50%)`
+    } else {
+      ctx.fillStyle = palette.visor
+    }
+
     ctx.beginPath()
     ctx.roundRect(vx, vy, vw, vh, 2)
     ctx.fill()
@@ -49,13 +56,32 @@ export const defaultSkin = {
     const eyeY = cy + 1
     const blend = state.blend || (state.mood === 'happy' ? 1 : 0)
 
-    // Clip all eye drawing to the visor bounds
     ctx.save()
     ctx.beginPath()
     ctx.roundRect(6, 10, 20, 12, 2)
     ctx.clip()
 
-    if (state.mood === 'sleeping') {
+    // Glitch — scramble eye positions rapidly
+    if (state.event === 'glitch') {
+      const scramble = Math.sin(state.eventTime * 80) * 6
+      const scrambleY = Math.cos(state.eventTime * 60) * 3
+      ctx.fillStyle = palette.eye
+      ctx.beginPath()
+      ctx.arc(cx - 4 + scramble, eyeY + scrambleY, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(cx + 4 - scramble, eyeY - scrambleY, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Static lines
+      for (let i = 0; i < 4; i++) {
+        const sy = 10 + Math.sin(state.eventTime * 100 + i * 2) * 6
+        if (Math.random() > 0.6) {
+          ctx.fillStyle = `rgba(255,255,255,${0.3 + Math.random() * 0.4})`
+          ctx.fillRect(6, sy, 20, 1 + Math.random() * 2)
+        }
+      }
+    } else if (state.mood === 'sleeping') {
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1.2
       ctx.beginPath()
@@ -64,6 +90,39 @@ export const defaultSkin = {
       ctx.beginPath()
       ctx.arc(cx + 4, eyeY + 1, 2.5, Math.PI, 0, true)
       ctx.stroke()
+    } else if (state.mood === 'surprised') {
+      const p = state.surprisedTimer / 0.5
+      const eyeR = 3.5 - p * 1.5
+      ctx.fillStyle = palette.eye
+      ctx.beginPath()
+      ctx.arc(cx - 4, eyeY, eyeR, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(cx + 4, eyeY, eyeR, 0, Math.PI * 2)
+      ctx.fill()
+    } else if (state.event === 'sneeze') {
+      const p = state.eventTime / 0.4
+      ctx.strokeStyle = palette.eye
+      ctx.lineWidth = 1.2
+      if (p < 0.3) {
+        ctx.beginPath()
+        ctx.arc(cx - 4, eyeY + 2, 3.5, Math.PI * 0.7, Math.PI * 0.3, true)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(cx + 4, eyeY + 2, 3.5, Math.PI * 0.7, Math.PI * 0.3, true)
+        ctx.stroke()
+      } else {
+        ctx.beginPath()
+        ctx.arc(cx - 4, eyeY, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + 4, eyeY, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    } else if (state.event === 'heart') {
+      ctx.fillStyle = '#ff4081'
+      this._drawHeart(ctx, cx - 4, eyeY, 2.5)
+      this._drawHeart(ctx, cx + 4, eyeY, 2.5)
     } else if (state.blink && blend < 0.5) {
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1
@@ -104,7 +163,19 @@ export const defaultSkin = {
     ctx.restore()
   },
 
-  drawAntenna(ctx, palette, time) {
+  _drawHeart(ctx, x, y, size) {
+    ctx.save()
+    ctx.translate(x, y)
+    ctx.scale(size / 2.5, size / 2.5)
+    ctx.beginPath()
+    ctx.moveTo(0, 1.5)
+    ctx.bezierCurveTo(-2.5, -1.5, -5, 0.5, 0, 3.5)
+    ctx.bezierCurveTo(5, 0.5, 2.5, -1.5, 0, 1.5)
+    ctx.fill()
+    ctx.restore()
+  },
+
+  drawAntenna(ctx, palette, state, time) {
     const cx = 16
     const topY = 4
 
@@ -115,11 +186,13 @@ export const defaultSkin = {
     ctx.lineTo(cx, topY)
     ctx.stroke()
 
-    const glow = Math.sin(time * 3) * 0.3 + 0.7
+    const isSurprised = state && state.mood === 'surprised'
+    const glow = isSurprised ? 1 : Math.sin(time * 3) * 0.3 + 0.7
+
     ctx.fillStyle = palette.glow
     ctx.globalAlpha = glow
     ctx.beginPath()
-    ctx.arc(cx, topY, 1.5, 0, Math.PI * 2)
+    ctx.arc(cx, topY, isSurprised ? 2.5 : 1.5, 0, Math.PI * 2)
     ctx.fill()
     ctx.globalAlpha = 1
   }
