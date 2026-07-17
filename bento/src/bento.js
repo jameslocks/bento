@@ -45,6 +45,10 @@ export class Bento {
     this._loop(this._lastTime)
   }
 
+  resize() {
+    this._resize()
+  }
+
   destroy() {
     if (this._rafId) cancelAnimationFrame(this._rafId)
     this.canvas.removeEventListener('click', this._onTap)
@@ -97,7 +101,7 @@ export class Bento {
   }
 
   _handleTap(e) {
-    e.preventDefault()
+    if (e.cancelable) e.preventDefault()
     if (this._happyCooldown > 0) return
 
     this.mood = 'happy'

@@ -27,7 +27,7 @@ export class SoundEngine {
     osc.frequency.setValueAtTime(frequency, this._ctx.currentTime)
 
     gain.gain.setValueAtTime(volume, this._ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, this._ctx.currentTime + duration)
+    gain.gain.linearRampToValueAtTime(0, this._ctx.currentTime + duration)
 
     osc.connect(gain)
     gain.connect(this._ctx.destination)
@@ -56,7 +56,7 @@ export class SoundEngine {
       osc.type = 'sine'
       osc.frequency.setValueAtTime(freq, now + i * 0.1)
       gain.gain.setValueAtTime(0.15, now + i * 0.1)
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.15)
+      gain.gain.linearRampToValueAtTime(0, now + i * 0.1 + 0.15)
       osc.connect(gain)
       gain.connect(this._ctx.destination)
       osc.start(now + i * 0.1)

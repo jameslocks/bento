@@ -17,7 +17,11 @@ function init() {
   const bento = new Bento(canvas, defaultSkin, sound)
   bento.start()
 
-  window.addEventListener('resize', () => bento._resize())
+  let resizeTimer
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(() => bento.resize(), 100)
+  })
 
   skinButtons.forEach(btn => {
     btn.addEventListener('click', () => {

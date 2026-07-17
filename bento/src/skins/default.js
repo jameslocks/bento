@@ -10,10 +10,8 @@ export const defaultSkin = {
   },
 
   drawHead(ctx, palette, time) {
-    const w = ctx.canvas.width
-    const h = ctx.canvas.height
-    const cx = w / 2
-    const cy = h / 2
+    const cx = 16
+    const cy = 16
 
     const hw = 28
     const hh = 24
@@ -46,10 +44,8 @@ export const defaultSkin = {
   },
 
   drawEyes(ctx, palette, state, time) {
-    const w = ctx.canvas.width
-    const h = ctx.canvas.height
-    const cx = w / 2
-    const cy = h / 2
+    const cx = 16
+    const cy = 16
     const eyeY = cy + 1
 
     if (state.mood === 'happy') {
@@ -91,8 +87,7 @@ export const defaultSkin = {
   },
 
   drawAntenna(ctx, palette, time) {
-    const w = ctx.canvas.width
-    const cx = w / 2
+    const cx = 16
     const topY = 4
 
     ctx.strokeStyle = palette.antenna
