@@ -1,0 +1,39 @@
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f0e6d3;
+  font-family: system-ui, sans-serif;
+}
+
+#app {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+#bento-canvas {
+  cursor: pointer;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: manipulation;
+}
+
+.hidden {
+  display: none;
+}
+
+#fallback {
+  color: #666;
+  font-size: 1.2rem;
+  text-align: center;
+  padding: 2rem;
+}
