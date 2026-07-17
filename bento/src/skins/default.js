@@ -49,9 +49,13 @@ export const defaultSkin = {
     const eyeY = cy + 1
     const blend = state.blend || (state.mood === 'happy' ? 1 : 0)
 
-    // Sleeping — closed curved eyes
+    // Clip all eye drawing to the visor bounds
+    ctx.save()
+    ctx.beginPath()
+    ctx.roundRect(6, 10, 20, 12, 2)
+    ctx.clip()
+
     if (state.mood === 'sleeping') {
-      const sleepy = Math.min(1, Math.max(0, state.napDuration / 0.5))
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1.2
       ctx.beginPath()
@@ -60,11 +64,7 @@ export const defaultSkin = {
       ctx.beginPath()
       ctx.arc(cx + 4, eyeY + 1, 2.5, Math.PI, 0, true)
       ctx.stroke()
-      return
-    }
-
-    // Blink (only during idle, not during happy transition)
-    if (state.blink && blend < 0.5) {
+    } else if (state.blink && blend < 0.5) {
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1
       ctx.beginPath()
@@ -75,32 +75,33 @@ export const defaultSkin = {
       ctx.moveTo(cx + 2.5 + (state.lookX || 0), eyeY)
       ctx.lineTo(cx + 5.5 + (state.lookX || 0), eyeY)
       ctx.stroke()
-      return
-    }
+    } else {
+      const eyeR = 1.5 + blend * 1.0
+      const lx = state.lookX || 0
+      const ly = state.lookY || 0
 
-    const eyeR = 1.5 + blend * 1.0
-    const lx = state.lookX || 0
-    const ly = state.lookY || 0
-
-    ctx.fillStyle = palette.eye
-    ctx.beginPath()
-    ctx.arc(cx - 4 + lx, eyeY + ly, eyeR, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.beginPath()
-    ctx.arc(cx + 4 + lx, eyeY + ly, eyeR, 0, Math.PI * 2)
-    ctx.fill()
-
-    if (blend > 0.1) {
-      ctx.fillStyle = palette.cheek
-      ctx.globalAlpha = blend
+      ctx.fillStyle = palette.eye
       ctx.beginPath()
-      ctx.arc(cx - 7, eyeY + 3, 2, 0, Math.PI * 2)
+      ctx.arc(cx - 4 + lx, eyeY + ly, eyeR, 0, Math.PI * 2)
       ctx.fill()
       ctx.beginPath()
-      ctx.arc(cx + 7, eyeY + 3, 2, 0, Math.PI * 2)
+      ctx.arc(cx + 4 + lx, eyeY + ly, eyeR, 0, Math.PI * 2)
       ctx.fill()
-      ctx.globalAlpha = 1
+
+      if (blend > 0.1) {
+        ctx.fillStyle = palette.cheek
+        ctx.globalAlpha = blend
+        ctx.beginPath()
+        ctx.arc(cx - 7, eyeY + 3, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + 7, eyeY + 3, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.globalAlpha = 1
+      }
     }
+
+    ctx.restore()
   },
 
   drawAntenna(ctx, palette, time) {
