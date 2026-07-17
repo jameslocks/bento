@@ -37,11 +37,17 @@ export class SoundEngine {
   }
 
   chirp() {
-    this._play(880, 0.1, 'sine')
+    const types = ['sine', 'triangle']
+    const freq = 700 + Math.random() * 400
+    const type = types[Math.floor(Math.random() * types.length)]
+    const dur = 0.06 + Math.random() * 0.08
+    this._play(freq, dur, type)
   }
 
   boop() {
-    this._play(440, 0.15, 'triangle')
+    const freq = 350 + Math.random() * 170
+    const dur = 0.12 + Math.random() * 0.08
+    this._play(freq, dur, 'triangle')
   }
 
   happy() {
@@ -49,7 +55,8 @@ export class SoundEngine {
     if (!this._ctx) return
 
     const now = this._ctx.currentTime
-    const notes = [660, 880]
+    const baseFreq = 600 + Math.random() * 120
+    const notes = [baseFreq, baseFreq * (1.25 + Math.random() * 0.15)]
     notes.forEach((freq, i) => {
       const osc = this._ctx.createOscillator()
       const gain = this._ctx.createGain()

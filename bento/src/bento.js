@@ -17,6 +17,7 @@ export class Bento {
     this.mood = 'idle'
     this._happyTimer = 0
     this._happyCooldown = 0
+    this._moodBlend = 1.0
 
     // Idle animation state
     this._blinkTimer = 3 + Math.random() * 2
@@ -78,6 +79,13 @@ export class Bento {
       this._happyCooldown -= dt
     }
 
+    // Mood blend — smooth transition from happy back to idle
+    if (this.mood === 'happy') {
+      this._moodBlend = Math.min(1, this._moodBlend + dt * 2)
+    } else {
+      this._moodBlend = Math.max(0, this._moodBlend - dt * 4)
+    }
+
     // Blink timer
     this._blinkTimer -= dt
     if (this._blinkTimer <= 0) {
@@ -123,6 +131,7 @@ export class Bento {
 
     const state = {
       mood: this.mood,
+      blend: this._moodBlend,
       blink: this._isBlinking,
       time: this._time
     }
@@ -135,19 +144,21 @@ export class Bento {
   }
 
   _getBounceOffset() {
+    const idleOffset = Math.sin(this._time * 1.5) * 1.5 * this._scale
+
     if (this.mood === 'happy') {
-      // Quick upward bounce that settles
       const t = this._happyTimer
+      let happyOffset
       if (t > 1.2) {
-        // Initial jump
         const phase = (t - 1.2) / 0.3
-        return -Math.sin(phase * Math.PI) * 6 * this._scale
+        happyOffset = -Math.sin(phase * Math.PI) * 6 * this._scale
+      } else {
+        happyOffset = -Math.sin(t * 8) * 1.5 * Math.max(0, t / 1.2) * this._scale
       }
-      // Settling bounce
-      return -Math.sin(t * 8) * 1.5 * Math.max(0, t / 1.2) * this._scale
+      return happyOffset * this._moodBlend + idleOffset * (1 - this._moodBlend)
     }
-    // Idle gentle float
-    return Math.sin(this._time * 1.5) * 1.5 * this._scale
+
+    return idleOffset * (1 - this._moodBlend) + Math.sin(this._time * 3) * 1.5 * this._moodBlend * this._scale
   }
 
   setSkin(skin) {

@@ -47,24 +47,9 @@ export const defaultSkin = {
     const cx = 16
     const cy = 16
     const eyeY = cy + 1
+    const blend = state.blend || (state.mood === 'happy' ? 1 : 0)
 
-    if (state.mood === 'happy') {
-      ctx.fillStyle = palette.eye
-      ctx.beginPath()
-      ctx.arc(cx - 4, eyeY, 2.5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(cx + 4, eyeY, 2.5, 0, Math.PI * 2)
-      ctx.fill()
-
-      ctx.fillStyle = palette.cheek
-      ctx.beginPath()
-      ctx.arc(cx - 7, eyeY + 3, 2, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(cx + 7, eyeY + 3, 2, 0, Math.PI * 2)
-      ctx.fill()
-    } else if (state.blink) {
+    if (state.blink && blend < 0.5) {
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1
       ctx.beginPath()
@@ -75,14 +60,29 @@ export const defaultSkin = {
       ctx.moveTo(cx + 2.5, eyeY)
       ctx.lineTo(cx + 5.5, eyeY)
       ctx.stroke()
-    } else {
-      ctx.fillStyle = palette.eye
+      return
+    }
+
+    const eyeR = 1.5 + blend * 1.0
+
+    ctx.fillStyle = palette.eye
+    ctx.beginPath()
+    ctx.arc(cx - 4, eyeY, eyeR, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(cx + 4, eyeY, eyeR, 0, Math.PI * 2)
+    ctx.fill()
+
+    if (blend > 0.1) {
+      ctx.fillStyle = palette.cheek
+      ctx.globalAlpha = blend
       ctx.beginPath()
-      ctx.arc(cx - 4, eyeY, 1.5, 0, Math.PI * 2)
+      ctx.arc(cx - 7, eyeY + 3, 2, 0, Math.PI * 2)
       ctx.fill()
       ctx.beginPath()
-      ctx.arc(cx + 4, eyeY, 1.5, 0, Math.PI * 2)
+      ctx.arc(cx + 7, eyeY + 3, 2, 0, Math.PI * 2)
       ctx.fill()
+      ctx.globalAlpha = 1
     }
   },
 
