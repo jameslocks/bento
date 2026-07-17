@@ -342,7 +342,7 @@ export class Bento {
   _draw() {
     const ctx = this.ctx
 
-    ctx.fillStyle = '#f0e6d3'
+    ctx.fillStyle = '#2c2c2c'
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
     this._drawParticles(ctx)
