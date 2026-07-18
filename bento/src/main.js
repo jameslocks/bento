@@ -4,6 +4,9 @@ import { SoundEngine } from './sound.js'
 import { SettingsStore } from './settings.js'
 import { AudioManager } from './audio.js'
 import { defaultSkin } from './skins/default.js'
+import { SpeechRecognizer } from './speech.js'
+import { routeCommand } from './commands.js'
+import { TapHoldDetector } from './taphold.js'
 
 function init() {
   const canvas = document.getElementById('bento-canvas')
@@ -49,6 +52,35 @@ function init() {
 
   // Apply educational mode on load
   bento.setEducationalMode(!!settings.get('educationalMode'))
+
+  // Speech recognition
+  const speech = new SpeechRecognizer(
+    (text) => {
+      const matched = routeCommand(text, bento, audio)
+      if (!matched) {
+        if (Math.random() < 0.6) {
+          bento._event = 'confused'
+          bento._eventTime = 0
+        } else {
+          const keys = Object.keys(bento._events)
+          bento._event = keys[Math.floor(Math.random() * keys.length)]
+          bento._eventTime = 0
+          if (bento._onEventStart) bento._onEventStart(bento._event)
+        }
+      }
+    },
+    () => {}
+  )
+
+  if (apiEndpoint && apiKey) {
+    speech.setApiConfig(apiEndpoint, apiKey)
+  }
+
+  // Wire tap-hold to start listening
+  const tapHold = new TapHoldDetector(canvas, () => {
+    bento.mood = 'idle'
+    speech.start()
+  })
 
   settingsBtn.addEventListener('click', () => {
     const data = settings.getAll()
