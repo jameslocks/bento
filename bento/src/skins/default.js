@@ -54,12 +54,12 @@ export const defaultSkin = {
 
     // Letter display
     if (state && state.displayLetter) {
-      ctx.fillStyle = '#fff'
+      ctx.fillStyle = '#d0d0d0'
       ctx.font = 'bold 8px monospace'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'bottom'
       ctx.globalAlpha = Math.min(1, state.displayLetterTimer || 1)
-      ctx.fillText(state.displayLetter, cx, cy + 13)
+      ctx.fillText(state.displayLetter, cx, cy + 20)
       ctx.globalAlpha = 1
     }
   },
