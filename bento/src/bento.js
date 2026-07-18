@@ -56,7 +56,6 @@ export class Bento {
     // Accessory state
     this._accessory = null
     this._accessoryTimer = 0
-    this._accessoryDuration = 120 + Math.random() * 60
     this._accessoryCheckTimer = 10 + Math.random() * 15
 
     // Surprised state (wake from sleep)

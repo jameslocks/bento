@@ -74,12 +74,12 @@ function drawSunglasses(ctx, palette, state, time) {
   ctx.fillStyle = frameColor
   ctx.fillRect(cx - 7, eyeY - 2, 6, 5)
   ctx.fillStyle = lensColor
-  ctx.fillRect(cx - 6.5, eyeY - 1.5, 5, 4)
+  ctx.fillRect(cx - 6, eyeY - 1, 5, 4)
   // Right lens
   ctx.fillStyle = frameColor
   ctx.fillRect(cx + 1, eyeY - 2, 6, 5)
   ctx.fillStyle = lensColor
-  ctx.fillRect(cx + 1.5, eyeY - 1.5, 5, 4)
+  ctx.fillRect(cx + 1.5, eyeY - 1, 5, 4)
   // Bridge
   ctx.fillStyle = frameColor
   ctx.fillRect(cx - 1, eyeY - 1, 2, 2)
