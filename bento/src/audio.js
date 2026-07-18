@@ -74,7 +74,7 @@ export class AudioManager {
     if (!this._audioCtx) return
 
     try {
-      const resp = await fetch(`${this._apiEndpoint}/v1/audio/speech`, {
+      const resp = await fetch(`${this._apiEndpoint}/audio/speech`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
