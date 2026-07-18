@@ -169,7 +169,7 @@ export class Bento {
     // Update current event
     if (this._event) {
       this._eventTime += dt
-      if (this._eventTime >= this._events[this._event]) {
+      if (this._eventTime >= (this._events[this._event] ?? this._dizzyDuration)) {
         this._event = null
         this._eventTime = 0
       }
@@ -384,7 +384,7 @@ export class Bento {
       napDuration: this.mood === 'sleeping' ? this._napDuration : 0,
       event: this._event,
       eventTime: this._eventTime,
-      eventBlend: this._event ? (1 - Math.cos((this._eventTime / this._events[this._event]) * Math.PI)) / 2 : 0,
+      eventBlend: this._event ? (1 - Math.cos((this._eventTime / (this._events[this._event] ?? this._dizzyDuration)) * Math.PI)) / 2 : 0,
       surprisedTimer: this.mood === 'surprised' ? this._surprisedTimer : 0,
       time: this._time
     }
