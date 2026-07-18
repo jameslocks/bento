@@ -15,9 +15,6 @@ const STYLES = {
     max-height: calc(100vh - 80px);
     overflow-y: auto;
   `,
-  hidden: `
-    display: none;
-  `,
   section: `
     margin-bottom: 10px;
   `,
@@ -68,6 +65,11 @@ const STYLES = {
   `
 }
 
+// Add stylesheet for hidden class
+const styleEl = document.createElement('style')
+styleEl.textContent = '#debug-panel.hidden { display: none !important; }'
+document.head.appendChild(styleEl)
+
 function el(tag, cssText, children) {
   const e = document.createElement(tag)
   e.style.cssText = cssText
@@ -88,8 +90,9 @@ function btn(text, onClick) {
 }
 
 export function initDebugPanel(bento) {
-  const panel = el('div', STYLES.panel + STYLES.hidden)
+  const panel = el('div', STYLES.panel)
   panel.id = 'debug-panel'
+  panel.classList.add('hidden')
 
   const stateDisplay = el('div', STYLES.state)
 
@@ -195,12 +198,10 @@ export function initDebugPanel(bento) {
     if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.metaKey && !e.altKey) {
       const active = document.activeElement
       if (active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA')) return
-      panel.style.display = panel.style.display === 'none' ? '' : 'none'
+      panel.classList.toggle('hidden')
     }
   })
 
-  // Start hidden
-  panel.style.display = 'none'
   document.body.appendChild(panel)
 
   // Update state periodically
