@@ -441,7 +441,7 @@ export class Bento {
     ctx.save()
     ctx.translate(0, this._getBounceOffset())
     ctx.scale(this._scale, this._scale)
-    ctx.translate(0, 5)
+    ctx.translate(0, 8)
 
     if (this._event === 'spin') {
       const progress = this._eventTime / this._events.spin
