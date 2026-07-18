@@ -168,7 +168,7 @@ export function initDebugPanel(bento) {
     btn('Bowtie', () => { bento._setAccessory('bowtie'); updateState() }),
     btn('Sunglasses', () => { bento._setAccessory('sunglasses'); updateState() }),
     btn('Earmuffs', () => { bento._setAccessory('earmuffs'); updateState() }),
-    btn('Clear', () => { bento._accessory = null; updateState() })
+    btn('Clear', () => { bento._accessory = null; bento._accessoryTimer = 0; updateState() })
   ])))
 
   // Letter
