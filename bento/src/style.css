@@ -38,3 +38,140 @@ html, body {
   padding: 2rem;
 }
 
+#settings-btn {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  color: #aaa;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  z-index: 10;
+}
+
+#settings-btn:hover {
+  background: rgba(255,255,255,0.3);
+  color: #fff;
+}
+
+#settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: #1a1a2e;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-y: auto;
+}
+
+#settings-overlay.hidden {
+  display: none;
+}
+
+#settings-content {
+  width: 100%;
+  max-width: 400px;
+  padding: 24px;
+  color: #e0e0e0;
+}
+
+#settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+#settings-header h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+#settings-close {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px;
+}
+
+#settings-close:hover {
+  color: #fff;
+}
+
+#settings-form label {
+  display: block;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+#settings-form input,
+#settings-form select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #2c2c2c;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#settings-form input:focus,
+#settings-form select:focus {
+  border-color: #4fc3f7;
+}
+
+#settings-form fieldset {
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+#settings-form legend {
+  font-size: 0.85rem;
+  color: #aaa;
+  padding: 0 6px;
+}
+
+#settings-form fieldset label {
+  display: inline-block;
+  margin-right: 12px;
+  margin-bottom: 0;
+}
+
+#settings-form fieldset select {
+  width: auto;
+  min-width: 80px;
+}
+
+#settings-save {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  background: #4fc3f7;
+  color: #1a1a2e;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#settings-save:hover {
+  background: #29b6f6;
+}
+
