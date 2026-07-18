@@ -83,6 +83,30 @@ export const defaultSkin = {
           ctx.fillRect(6, sy, 20, 1 + Math.random() * 2)
         }
       }
+    } else if (state.event === 'dizzy') {
+      const p = state.eventTime / 2.0
+      const orbitR = 2.5
+      const angle = p * Math.PI * 4
+      const decay = 1 - p
+
+      // Donut trail
+      ctx.strokeStyle = `rgba(79, 195, 247, ${0.3 * decay})`
+      ctx.lineWidth = 0.5
+      ctx.beginPath()
+      ctx.arc(cx - 4, eyeY, orbitR, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(cx + 4, eyeY, orbitR, 0, Math.PI * 2)
+      ctx.stroke()
+
+      // Eye dots
+      ctx.fillStyle = palette.eye
+      ctx.beginPath()
+      ctx.arc(cx - 4 + Math.cos(angle) * orbitR, eyeY + Math.sin(angle) * orbitR, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.arc(cx + 4 + Math.cos(angle + Math.PI) * orbitR, eyeY + Math.sin(angle + Math.PI) * orbitR, 1.5, 0, Math.PI * 2)
+      ctx.fill()
     } else if (state.mood === 'sleeping') {
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1.2
