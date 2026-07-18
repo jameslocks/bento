@@ -1,3 +1,4 @@
+import { accessories } from '../accessories.js'
 export const defaultSkin = {
   name: 'Default',
   palette: {
@@ -259,5 +260,13 @@ export const defaultSkin = {
     ctx.arc(cx, topY, isSurprised ? 2.5 : 1.5, 0, Math.PI * 2)
     ctx.fill()
     ctx.globalAlpha = 1
+  },
+
+  drawAccessory(ctx, palette, state, time) {
+    if (!state.accessory) return
+    const acc = accessories.get(state.accessory)
+    if (acc) {
+      acc.draw(ctx, palette, state, time)
+    }
   }
 }
