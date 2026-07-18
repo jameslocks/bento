@@ -4,7 +4,6 @@ export class TapHoldDetector {
     this._callback = callback
     this._threshold = threshold
     this._timer = null
-    this._fired = false
 
     this._onPointerDown = this._onPointerDown.bind(this)
     this._onPointerUp = this._onPointerUp.bind(this)
@@ -16,9 +15,7 @@ export class TapHoldDetector {
   }
 
   _onPointerDown(e) {
-    this._fired = false
     this._timer = setTimeout(() => {
-      this._fired = true
       this._callback(e)
     }, this._threshold)
   }

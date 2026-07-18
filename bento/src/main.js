@@ -55,7 +55,7 @@ function init() {
     e.preventDefault()
     const formData = new FormData(settingsForm)
     for (const [key, value] of formData.entries()) {
-      if (value) settings.set(key, value)
+      settings.set(key, value)
     }
     settingsOverlay.classList.add('hidden')
   })
