@@ -1,3 +1,4 @@
+import { accessories } from './accessories.js'
 export class Bento {
   constructor(canvas, skin, sound) {
     this.canvas = canvas
@@ -51,6 +52,12 @@ export class Bento {
       confused: 1.5
     }
     this._dizzyDuration = 2.0
+
+    // Accessory state
+    this._accessory = null
+    this._accessoryTimer = 0
+    this._accessoryDuration = 120 + Math.random() * 60
+    this._accessoryCheckTimer = 10 + Math.random() * 15
 
     // Surprised state (wake from sleep)
     this._surprisedTimer = 0
@@ -163,6 +170,27 @@ export class Bento {
           this._onEventStart(this._event)
         }
         this._eventCheckTimer = 10 + Math.random() * 15
+      }
+    }
+
+    // Accessory random events (very rare)
+    if (this.mood === 'idle' && !this._event && !this._accessory) {
+      this._accessoryCheckTimer -= dt
+      if (this._accessoryCheckTimer <= 0) {
+        if (Math.random() < 0.05) {
+          const keys = Array.from(accessories.keys())
+          this._setAccessory(keys[Math.floor(Math.random() * keys.length)])
+        }
+        this._accessoryCheckTimer = 10 + Math.random() * 15
+      }
+    }
+
+    // Update accessory timer
+    if (this._accessory) {
+      this._accessoryTimer -= dt
+      if (this._accessoryTimer <= 0) {
+        this._accessory = null
+        this._accessoryTimer = 0
       }
     }
 
@@ -336,6 +364,11 @@ export class Bento {
     this.sound.dizzy()
   }
 
+  _setAccessory(key) {
+    this._accessory = key
+    this._accessoryTimer = 120 + Math.random() * 60
+  }
+
   _draw() {
     const ctx = this.ctx
 
@@ -386,12 +419,14 @@ export class Bento {
       eventTime: this._eventTime,
       eventBlend: this._event ? (1 - Math.cos((this._eventTime / (this._events[this._event] ?? this._dizzyDuration)) * Math.PI)) / 2 : 0,
       surprisedTimer: this.mood === 'surprised' ? this._surprisedTimer : 0,
-      time: this._time
+      time: this._time,
+      accessory: this._accessory
     }
 
     this.skin.drawAntenna(ctx, this.skin.palette, state, this._time)
     this.skin.drawHead(ctx, this.skin.palette, state, this._time)
     this.skin.drawEyes(ctx, this.skin.palette, state, this._time)
+    this.skin.drawAccessory(ctx, this.skin.palette, state, this._time)
 
     if (this.mood === 'sleeping') {
       const bob = Math.sin(this._time * 2) * 0.6
