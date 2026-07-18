@@ -99,10 +99,12 @@ export class Bento {
     const displaySize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.8)
     const size = Math.min(displaySize, 640)
     this._scale = Math.max(4, Math.floor(size / this._gridSize))
-    this.canvas.width = size
-    this.canvas.height = size
-    this.canvas.style.width = size + 'px'
-    this.canvas.style.height = size + 'px'
+    const w = size
+    const h = Math.round(size * 1.2)
+    this.canvas.width = w
+    this.canvas.height = h
+    this.canvas.style.width = w + 'px'
+    this.canvas.style.height = h + 'px'
   }
 
   start() {
@@ -439,6 +441,7 @@ export class Bento {
     ctx.save()
     ctx.translate(0, this._getBounceOffset())
     ctx.scale(this._scale, this._scale)
+    ctx.translate(0, 5)
 
     if (this._event === 'spin') {
       const progress = this._eventTime / this._events.spin
