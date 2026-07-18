@@ -202,4 +202,37 @@ export class SoundEngine {
       osc.stop(now + i * 0.1 + 0.15)
     })
   }
+
+  dizzy() {
+    this._ensureContext()
+    if (!this._ctx) return
+
+    const now = this._ctx.currentTime
+
+    const osc = this._ctx.createOscillator()
+    const gain = this._ctx.createGain()
+    const lfo = this._ctx.createOscillator()
+    const lfoGain = this._ctx.createGain()
+
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(800, now)
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.4)
+
+    lfo.type = 'sine'
+    lfo.frequency.setValueAtTime(30, now)
+    lfoGain.gain.setValueAtTime(100, now)
+    lfo.connect(lfoGain)
+    lfoGain.connect(osc.frequency)
+
+    gain.gain.setValueAtTime(0.15, now)
+    gain.gain.linearRampToValueAtTime(0, now + 0.4)
+
+    osc.connect(gain)
+    gain.connect(this._ctx.destination)
+
+    osc.start(now)
+    lfo.start(now)
+    osc.stop(now + 0.4)
+    lfo.stop(now + 0.4)
+  }
 }
