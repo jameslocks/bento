@@ -2,7 +2,6 @@ import { Bento } from './bento.js'
 import { ShakeDetector } from './shake.js'
 import { SoundEngine } from './sound.js'
 import { defaultSkin } from './skins/default.js'
-import { getSkin } from './skins/index.js'
 
 function init() {
   const canvas = document.getElementById('bento-canvas')
