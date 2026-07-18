@@ -48,9 +48,9 @@ export class Bento {
       heart: 1.8,
       curious: 2.0,
       excited: 1.2,
-      confused: 1.5,
-      dizzy: 2.0
+      confused: 1.5
     }
+    this._dizzyDuration = 2.0
 
     // Surprised state (wake from sleep)
     this._surprisedTimer = 0
@@ -368,11 +368,11 @@ export class Bento {
     }
 
     if (this._event === 'dizzy') {
-      const p = this._eventTime / this._events.dizzy
+      const p = this._eventTime / this._dizzyDuration
       const decay = 1 - p
-      ctx.translate(16 * this._scale, 16 * this._scale)
+      ctx.translate(16, 16)
       ctx.rotate(Math.sin(this._eventTime * 30) * 0.05 * decay)
-      ctx.translate(-16 * this._scale, -16 * this._scale)
+      ctx.translate(-16, -16)
     }
 
     const state = {
@@ -475,7 +475,7 @@ export class Bento {
     }
 
     if (this._event === 'dizzy') {
-      const p = this._eventTime / this._events.dizzy
+      const p = this._eventTime / this._dizzyDuration
       const decay = 1 - p
       return Math.sin(this._eventTime * 40) * 3 * this._scale * decay
     }
