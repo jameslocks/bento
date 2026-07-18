@@ -7,6 +7,7 @@ import { defaultSkin } from './skins/default.js'
 import { SpeechRecognizer } from './speech.js'
 import { routeCommand } from './commands.js'
 import { TapHoldDetector } from './taphold.js'
+import { initDebugPanel } from './debug.js'
 
 function init() {
   const canvas = document.getElementById('bento-canvas')
@@ -123,6 +124,7 @@ function init() {
 
   bento._tapHold = tapHold
   window.__bento = bento
+  initDebugPanel(bento)
 }
 
 if (document.readyState === 'loading') {
