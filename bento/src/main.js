@@ -1,4 +1,5 @@
 import { Bento } from './bento.js'
+import { ShakeDetector } from './shake.js'
 import { SoundEngine } from './sound.js'
 import { defaultSkin } from './skins/default.js'
 import { getSkin } from './skins/index.js'
@@ -16,6 +17,8 @@ function init() {
   const sound = new SoundEngine()
   const bento = new Bento(canvas, defaultSkin, sound)
   bento.start()
+
+  const shake = new ShakeDetector(() => bento.triggerDizzy())
 
   let resizeTimer
   window.addEventListener('resize', () => {
