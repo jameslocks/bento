@@ -16,6 +16,9 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     defaults:
       run:
         working-directory: ./bento
@@ -27,9 +30,11 @@ jobs:
           cache: npm
           cache-dependency-path: ./bento/package-lock.json
       - run: npm ci
-      - run: npm run build
       - uses: actions/configure-pages@v4
+      - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./bento/dist
-      - uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
