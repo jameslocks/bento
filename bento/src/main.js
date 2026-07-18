@@ -121,6 +121,7 @@ function init() {
     settingsOverlay.classList.add('hidden')
   })
 
+  bento._tapHold = tapHold
   window.__bento = bento
 }
 

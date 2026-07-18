@@ -3,6 +3,7 @@ export class SpeechRecognizer {
     this._onResult = onResult
     this._onEnd = onEnd
     this._recognition = null
+    this._mediaRecorder = null
     this._apiEndpoint = ''
     this._apiKey = ''
     this._isListening = false
@@ -62,9 +63,70 @@ export class SpeechRecognizer {
         }
       }, 8000)
     } else if (this._apiEndpoint && this._apiKey) {
-      // Web Speech not available — AI fallback is handled externally
-      this._onEnd('unsupported')
+      this._startMediaRecorder()
     } else {
+      this._onEnd('unsupported')
+    }
+  }
+
+  async _startMediaRecorder() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      const chunks = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data)
+      }
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop())
+        if (chunks.length === 0) {
+          this._isListening = false
+          this._onEnd('timeout')
+          return
+        }
+        const blob = new Blob(chunks, { type: 'audio/webm' })
+        try {
+          const formData = new FormData()
+          formData.append('file', blob, 'recording.webm')
+          formData.append('model', 'whisper-1')
+
+          const resp = await fetch(`${this._apiEndpoint}/audio/transcriptions`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${this._apiKey}`
+            },
+            body: formData
+          })
+
+          if (resp.ok) {
+            const data = await resp.json()
+            const text = (data.text || '').trim().toLowerCase()
+            if (text) {
+              this._hasResult = true
+              this._onResult(text)
+            }
+          }
+        } catch {
+          // API call failed
+        }
+        this._isListening = false
+        this._onEnd('done')
+      }
+
+      this._mediaRecorder = mediaRecorder
+      mediaRecorder.start()
+
+      // Auto-stop after 5 seconds
+      this._silenceTimer = setTimeout(() => {
+        if (mediaRecorder.state === 'recording') {
+          mediaRecorder.stop()
+        }
+      }, 5000)
+    } catch {
+      // Mic access denied or unavailable
+      this._isListening = false
       this._onEnd('unsupported')
     }
   }
@@ -79,6 +141,10 @@ export class SpeechRecognizer {
       }
       this._recognition = null
     }
+    if (this._mediaRecorder && this._mediaRecorder.state === 'recording') {
+      this._mediaRecorder.stop()
+    }
+    this._mediaRecorder = null
     this._isListening = false
   }
 

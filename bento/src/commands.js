@@ -8,8 +8,9 @@ const COMMANDS = [
         const letter = match[0].toUpperCase()
         bento.showLetter(letter)
         if (audio) audio.play(letter.toLowerCase())
+        return true
       }
-      return true
+      return false
     }
   },
   {
