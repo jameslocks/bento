@@ -51,6 +51,17 @@ export const defaultSkin = {
     ctx.roundRect(vx, vy, vw, vh, 2)
     ctx.fill()
     if (state && state.event === 'rainbow') ctx.globalAlpha = 1
+
+    // Letter display
+    if (state && state.displayLetter) {
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 8px monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'bottom'
+      ctx.globalAlpha = Math.min(1, state.displayLetterTimer || 1)
+      ctx.fillText(state.displayLetter, cx, cy + 13)
+      ctx.globalAlpha = 1
+    }
   },
 
   drawEyes(ctx, palette, state, time) {

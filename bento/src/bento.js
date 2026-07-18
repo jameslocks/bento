@@ -58,6 +58,10 @@ export class Bento {
     this._accessoryTimer = 0
     this._accessoryCheckTimer = 10 + Math.random() * 15
 
+    // Letter display
+    this._displayLetter = null
+    this._displayLetterTimer = 0
+
     // Surprised state (wake from sleep)
     this._surprisedTimer = 0
 
@@ -281,6 +285,8 @@ export class Bento {
         this._particles.splice(i, 1)
       }
     }
+
+    this._updateLetterDisplay(dt)
   }
 
   _onEventStart(event) {
@@ -379,6 +385,20 @@ export class Bento {
     this._accessoryTimer = 120 + Math.random() * 60
   }
 
+  showLetter(letter) {
+    this._displayLetter = letter
+    this._displayLetterTimer = 3
+  }
+
+  _updateLetterDisplay(dt) {
+    if (this._displayLetter) {
+      this._displayLetterTimer -= dt
+      if (this._displayLetterTimer <= 0) {
+        this._displayLetter = null
+      }
+    }
+  }
+
   _draw() {
     const ctx = this.ctx
 
@@ -430,7 +450,9 @@ export class Bento {
       eventBlend: this._event ? (1 - Math.cos((this._eventTime / (this._events[this._event] ?? this._dizzyDuration)) * Math.PI)) / 2 : 0,
       surprisedTimer: this.mood === 'surprised' ? this._surprisedTimer : 0,
       time: this._time,
-      accessory: this._accessory
+      accessory: this._accessory,
+      displayLetter: this._displayLetter,
+      displayLetterTimer: this._displayLetterTimer,
     }
 
     this.skin.drawAntenna(ctx, this.skin.palette, state, this._time)
