@@ -31,6 +31,7 @@ function init() {
 
   // Settings
   const settings = new SettingsStore()
+  bento._checkBirthday(settings)
 
   settingsBtn.addEventListener('click', () => {
     const data = settings.getAll()

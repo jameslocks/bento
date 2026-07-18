@@ -364,6 +364,17 @@ export class Bento {
     this.sound.dizzy()
   }
 
+  _checkBirthday(settings) {
+    const today = new Date()
+    const month = today.getMonth() + 1
+    const day = today.getDate()
+    const birthMonth = parseInt(settings.get('birthMonth'), 10)
+    const birthDay = parseInt(settings.get('birthDay'), 10)
+    if (birthMonth === month && birthDay === day) {
+      this._setAccessory('partyhat')
+    }
+  }
+
   _setAccessory(key) {
     this._accessory = key
     this._accessoryTimer = 120 + Math.random() * 60
