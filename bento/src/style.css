@@ -175,3 +175,17 @@ html, body {
   background: #29b6f6;
 }
 
+#settings-form input[type="checkbox"] {
+  display: inline-block;
+  width: auto;
+  margin-top: 0;
+  margin-right: 8px;
+  accent-color: #4fc3f7;
+}
+
+#settings-form label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+}
+

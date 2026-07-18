@@ -2,6 +2,7 @@ import { Bento } from './bento.js'
 import { ShakeDetector } from './shake.js'
 import { SoundEngine } from './sound.js'
 import { SettingsStore } from './settings.js'
+import { AudioManager } from './audio.js'
 import { defaultSkin } from './skins/default.js'
 
 function init() {
@@ -33,11 +34,33 @@ function init() {
   const settings = new SettingsStore()
   bento._checkBirthday(settings)
 
+  const audio = new AudioManager()
+  bento.setAudioManager(audio)
+
+  // Preload common audio files
+  audio.preload('abcdefghijklmnopqrstuvwxyz0123456789'.split('').map(c => c.toLowerCase()))
+
+  // Load API config for AI fallback
+  const apiEndpoint = settings.get('apiEndpoint')
+  const apiKey = settings.get('apiKey')
+  if (apiEndpoint && apiKey) {
+    audio.setApiConfig(apiEndpoint, apiKey)
+  }
+
+  // Apply educational mode on load
+  bento.setEducationalMode(!!settings.get('educationalMode'))
+
   settingsBtn.addEventListener('click', () => {
     const data = settings.getAll()
     for (const [key, value] of Object.entries(data)) {
       const input = settingsForm.elements[key]
-      if (input) input.value = value
+      if (input) {
+        if (input.type === 'checkbox') {
+          input.checked = !!value
+        } else {
+          input.value = value
+        }
+      }
     }
     settingsOverlay.classList.remove('hidden')
   })
@@ -58,6 +81,11 @@ function init() {
     for (const [key, value] of formData.entries()) {
       settings.set(key, value)
     }
+    // Ensure checkbox state is saved even when unchecked
+    if (!formData.has('educationalMode')) {
+      settings.set('educationalMode', '')
+    }
+    bento.setEducationalMode(!!settings.get('educationalMode'))
     settingsOverlay.classList.add('hidden')
   })
 

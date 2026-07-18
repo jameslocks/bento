@@ -83,6 +83,12 @@ export class Bento {
     // Tap reaction: 25% chance of spark+glitch instead of happy
     this._tapGlitchChance = 0.25
 
+    // Educational mode
+    this._educationalMode = false
+    this._letterIndex = 0
+    this._letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    this._audio = null
+
     // Tap handler
     this._onTap = this._handleTap.bind(this)
     this.canvas.addEventListener('click', this._onTap)
@@ -331,6 +337,11 @@ export class Bento {
     if (e.cancelable) e.preventDefault()
     if (this._happyCooldown > 0) return
 
+    if (this._educationalMode) {
+      this._handleEducationalTap()
+      return
+    }
+
     this._event = null
     this._eventTime = 0
 
@@ -367,6 +378,24 @@ export class Bento {
     this._event = 'dizzy'
     this._eventTime = 0
     this.sound.dizzy()
+  }
+
+  setAudioManager(audio) {
+    this._audio = audio
+  }
+
+  setEducationalMode(enabled) {
+    this._educationalMode = enabled
+    this._letterIndex = 0
+  }
+
+  _handleEducationalTap() {
+    const letter = this._letters[this._letterIndex]
+    this.showLetter(letter)
+    if (this._audio) {
+      this._audio.play(letter.toLowerCase())
+    }
+    this._letterIndex = (this._letterIndex + 1) % this._letters.length
   }
 
   _checkBirthday(settings) {
