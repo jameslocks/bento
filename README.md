@@ -16,7 +16,7 @@ Open `http://localhost:5173/bento/` and tap Bento.
 
 ## Deploy
 
-Push to `main` and GitHub Actions auto-deploys to GitHub Pages.
+Push to `main` and GitHub Actions auto-deploys to [GitHub Pages](https://jameslocks.github.io/bento/).
 
 ```bash
 git push origin main
