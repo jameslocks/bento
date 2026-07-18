@@ -100,7 +100,7 @@ export class Bento {
     const size = Math.min(displaySize, 640)
     this._scale = Math.max(4, Math.floor(size / this._gridSize))
     const w = size
-    const h = Math.round(size * 1.2)
+    const h = Math.round(size * 1.5)
     this.canvas.width = w
     this.canvas.height = h
     this.canvas.style.width = w + 'px'
