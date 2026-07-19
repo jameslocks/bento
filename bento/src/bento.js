@@ -328,7 +328,7 @@ export class Bento {
       this._spawnParticle(16, 16, {
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        life: 0.4 + Math.random() * 0.3,
+        life: 1.5 + Math.random() * 1.0,
         size: 0.3 + Math.random() * 0.3,
         type: 'spark'
       })

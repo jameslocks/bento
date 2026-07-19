@@ -216,6 +216,14 @@ this._panko = null | {
 
 ---
 
+## Glitch Tap Sparks — Timing Fix
+
+Existing behavior: tapping Bento has a 25% chance to trigger a glitch event with spark particles. Sparks currently have `life: 0.4 + random() * 0.3` (0.4-0.7 seconds) — too fast to see.
+
+**Fix:** Increase spark lifetime to `1.5 + random() * 1.0` (1.5-2.5 seconds). Sparks will expand and fade visibly over a longer duration, making them recognizable as sparks rather than invisible flash effects.
+
+**File:** `bento/src/bento.js` line 331 (in `_spawnSparks()`)
+
 ## Implementation Order
 
 All features are independent. Recommended order based on complexity and dependencies:
