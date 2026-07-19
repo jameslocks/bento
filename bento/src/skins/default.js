@@ -34,6 +34,17 @@ export const defaultSkin = {
     ctx.closePath()
     ctx.fill()
 
+    // Time-of-day overlay
+    if (state && state.timePeriod) {
+      if (state.timePeriod === 'evening') {
+        ctx.fillStyle = 'rgba(255, 180, 100, 0.08)'
+        ctx.fillRect(x, y, hw, hh)
+      } else if (state.timePeriod === 'night') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'
+        ctx.fillRect(x, y, hw, hh)
+      }
+    }
+
     const vx = cx - 10
     const vy = cy - 6
     const vw = 20
@@ -200,15 +211,17 @@ export const defaultSkin = {
       ctx.arc(cx + 5, eyeY + 1, 1.2 * state.eventBlend + 0.3, 0, Math.PI * 2)
       ctx.fill()
     } else if (state.blink && blend < 0.5) {
+      const isNight = state.timePeriod === 'night'
+      const ew = isNight ? 1.2 : 1.5
       ctx.strokeStyle = palette.eye
       ctx.lineWidth = 1
       ctx.beginPath()
-      ctx.moveTo(cx - 5.5 + (state.lookX || 0), eyeY)
-      ctx.lineTo(cx - 2.5 + (state.lookX || 0), eyeY)
+      ctx.moveTo(cx - 4 - ew + (state.lookX || 0), eyeY)
+      ctx.lineTo(cx - 4 + ew + (state.lookX || 0), eyeY)
       ctx.stroke()
       ctx.beginPath()
-      ctx.moveTo(cx + 2.5 + (state.lookX || 0), eyeY)
-      ctx.lineTo(cx + 5.5 + (state.lookX || 0), eyeY)
+      ctx.moveTo(cx + 4 - ew + (state.lookX || 0), eyeY)
+      ctx.lineTo(cx + 4 + ew + (state.lookX || 0), eyeY)
       ctx.stroke()
     } else {
       const eyeR = 1.5 + blend * 1.0
