@@ -1,3 +1,4 @@
+import { PankoEvent } from './panko.js'
 import { accessories } from './accessories.js'
 import { getPeriod, getBlend, isNight } from './timekeeper.js'
 import { BondingTracker } from './bonding.js'
@@ -82,6 +83,11 @@ export class Bento {
       elapsed: 0
     }
     this._fireflyTrail = []
+
+    // Panko event
+    this._panko = null
+    this._pankoCheckTimer = 15 + Math.random() * 10
+    this._lastPankoTime = 0
 
     // Bonding / streaks
     this._bonding = new BondingTracker()
@@ -304,6 +310,26 @@ export class Bento {
       if (this._firefly.elapsed >= this._firefly.duration) {
         this._firefly.active = false
         this._fireflyTrail = []
+      }
+    }
+
+    // Panko event
+    if (this._panko && this._panko.isActive()) {
+      this._panko.update(dt)
+      if (!this._panko.isActive()) {
+        this._panko = null
+        this._lastPankoTime = this._time
+      }
+    } else if (!this._panko && this.mood === 'idle' && !this._event && !this._accessory) {
+      if (this._time - this._lastPankoTime > 300) {
+        this._pankoCheckTimer -= dt
+        if (this._pankoCheckTimer <= 0) {
+          if (Math.random() < 0.02) {
+            this._panko = new PankoEvent()
+            this._panko.start(this)
+          }
+          this._pankoCheckTimer = 15 + Math.random() * 10
+        }
       }
     }
 
@@ -611,6 +637,10 @@ export class Bento {
     }
 
     this._drawFirefly(ctx)
+
+    if (this._panko && this._panko.isActive()) {
+      this._panko.draw(ctx, this._scale, this._getBounceOffset())
+    }
   }
 
   _drawParticles(ctx) {
