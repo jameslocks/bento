@@ -175,6 +175,9 @@ export class PankoEvent {
     if (this.phase === 'bump') {
       if (this.phaseTimer < 0.5) {
         this.x = 15; this.y = 16
+        if (this.phaseTimer < dt) {
+          this._bento?.triggerEvent('confused')
+        }
       } else if (this.phaseTimer < 1.5) {
         this.rotation += dt * 6
         this.eyeShape = 'happy'

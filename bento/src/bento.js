@@ -91,7 +91,6 @@ export class Bento {
 
     // Bonding / streaks
     this._bonding = new BondingTracker()
-    this._rainbowGlow = false
     this._bondCrownActive = false
 
     // Tap reaction: 25% chance of spark+glitch instead of happy
@@ -312,6 +311,7 @@ export class Bento {
 
       if (this._firefly.elapsed >= this._firefly.duration) {
         this._firefly.active = false
+        this._firefly.timer = 60 + Math.random() * 30
         this._fireflyTrail = []
       }
     }
@@ -462,6 +462,14 @@ export class Bento {
     this.sound.happy()
   }
 
+  triggerEvent(name) {
+    if (this._events[name]) {
+      this._event = name
+      this._eventTime = 0
+      this._onEventStart(name)
+    }
+  }
+
   triggerDizzy() {
     this.mood = 'idle'
     this._event = 'dizzy'
@@ -583,7 +591,7 @@ export class Bento {
       accessory: this._accessory,
       displayLetter: this._displayLetter,
       displayLetterTimer: this._displayLetterTimer,
-      rainbowGlow: this._rainbowGlow,
+      antennaPulse: this._bonding.hasEffect('antennaPulse'),
       bonding: this._bonding,
       halo: this._bonding.hasEffect('halo') || this._bonding.hasEffect('supreme'),
     }
@@ -606,12 +614,6 @@ export class Bento {
     ctx.restore()
 
     // Bonding milestone effects
-    if (this._bonding.hasEffect('rainbow')) {
-      this._rainbowGlow = true
-    } else {
-      this._rainbowGlow = false
-    }
-
     if (this._bonding.hasEffect('golden')) {
       ctx.save()
       ctx.strokeStyle = `rgba(255, 215, 0, ${0.3 + Math.sin(this._time * 1.5) * 0.2})`

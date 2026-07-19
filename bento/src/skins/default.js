@@ -54,10 +54,6 @@ export const defaultSkin = {
       const hue = (state.eventTime / 1.2) * 360
       ctx.fillStyle = `hsl(${hue}, 100%, 50%)`
       ctx.globalAlpha = 0.3 + state.eventBlend * 0.7
-    } else if (state && state.rainbowGlow) {
-      const hue = (time * 60) % 360
-      ctx.fillStyle = `hsl(${hue}, 100%, 50%)`
-      ctx.globalAlpha = 0.2 + Math.sin(time * 2) * 0.1
     } else {
       ctx.fillStyle = palette.visor
     }
@@ -65,7 +61,7 @@ export const defaultSkin = {
     ctx.beginPath()
     ctx.roundRect(vx, vy, vw, vh, 2)
     ctx.fill()
-    if (state && (state.event === 'rainbow' || state.rainbowGlow)) ctx.globalAlpha = 1
+    if (state && state.event === 'rainbow') ctx.globalAlpha = 1
 
     // Letter display
     if (state && state.displayLetter) {
@@ -280,12 +276,13 @@ export const defaultSkin = {
     ctx.stroke()
 
     const isSurprised = state && state.mood === 'surprised'
-    const glow = isSurprised ? 1 : Math.sin(time * 3) * 0.3 + 0.7
+    const isPulsing = state && state.antennaPulse
+    const glow = isSurprised ? 1 : isPulsing ? Math.sin(time * 6) * 0.5 + 0.5 : Math.sin(time * 3) * 0.3 + 0.7
 
     ctx.fillStyle = palette.glow
     ctx.globalAlpha = glow
     ctx.beginPath()
-    ctx.arc(cx, topY, isSurprised ? 2.5 : 1.5, 0, Math.PI * 2)
+    ctx.arc(cx, topY, isSurprised ? 2.5 : isPulsing ? 2.0 : 1.5, 0, Math.PI * 2)
     ctx.fill()
     ctx.globalAlpha = 1
 

@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'bento:bonding'
 
 const MILESTONES = [
-  { streak: 1, key: 'rainbow' },
+  { streak: 1, key: 'antennaPulse' },
   { streak: 5, key: 'crown' },
   { streak: 10, key: 'sparkles' },
   { streak: 25, key: 'golden' },
@@ -81,7 +81,7 @@ export class BondingTracker {
 
   _updateActiveEffects() {
     this._activeEffects = []
-    const durations = { rainbow: 300, crown: 300, sparkles: 300, golden: 300, halo: 300, supreme: 600 }
+    const durations = { antennaPulse: 300, crown: 300, sparkles: 300, golden: 300, halo: 300, supreme: 600 }
     const now = Date.now()
 
     for (const m of MILESTONES) {
