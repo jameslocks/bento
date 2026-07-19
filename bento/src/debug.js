@@ -97,8 +97,10 @@ export function initDebugPanel(bento) {
   const stateDisplay = el('div', STYLES.state)
 
   function updateState() {
+    const streak = bento._bonding ? bento._bonding.getStreak() : 0
+    const effects = bento._bonding ? bento._bonding.getActiveMilestones().join(',') : '—'
     stateDisplay.textContent =
-      `mood: ${bento.mood} | event: ${bento._event || '—'} | acc: ${bento._accessory || '—'} | edu: ${bento._educationalMode ? 'on' : 'off'}`
+      `mood: ${bento.mood} | event: ${bento._event || '—'} | acc: ${bento._accessory || '—'} | edu: ${bento._educationalMode ? 'on' : 'off'} | streak: ${streak} [${effects}]`
   }
 
   function section(title, content) {
@@ -172,6 +174,22 @@ export function initDebugPanel(bento) {
     btn('Sunglasses', () => { bento._setAccessory('sunglasses'); updateState() }),
     btn('Earmuffs', () => { bento._setAccessory('earmuffs'); updateState() }),
     btn('Clear', () => { bento._accessory = null; bento._accessoryTimer = 0; updateState() })
+  ])))
+
+  // Bonding
+  panel.appendChild(section('Bonding', row([
+    btn('Check', () => { const r = bento._bonding.checkAndUpdate(); updateState(); console.log('Bonding:', r) }),
+    btn('Reset', () => { localStorage.removeItem('bento:bonding'); location.reload() }),
+    btn('+1', () => {
+      const data = JSON.parse(localStorage.getItem('bento:bonding') || '{"lastVisit":null,"streak":0,"notified":[]}')
+      data.streak = (data.streak || 0) + 1
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      data.lastVisit = yesterday.toISOString().slice(0, 10)
+      localStorage.setItem('bento:bonding', JSON.stringify(data))
+      bento._bonding = new (bento._bonding.constructor)()
+      updateState()
+    })
   ])))
 
   // Letter

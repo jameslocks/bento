@@ -1,5 +1,6 @@
 import { accessories } from './accessories.js'
 import { getPeriod, getBlend, isNight } from './timekeeper.js'
+import { BondingTracker } from './bonding.js'
 export class Bento {
   constructor(canvas, skin, sound) {
     this.canvas = canvas
@@ -82,6 +83,10 @@ export class Bento {
     }
     this._fireflyTrail = []
 
+    // Bonding / streaks
+    this._bonding = new BondingTracker()
+    this._bondCrownActive = false
+
     // Tap reaction: 25% chance of spark+glitch instead of happy
     this._tapGlitchChance = 0.25
 
@@ -136,6 +141,9 @@ export class Bento {
   }
 
   _update(dt) {
+    // Bonding check
+    this._checkBonding()
+
     // Happy state
     if (this.mood === 'happy') {
       this._happyTimer -= dt
@@ -454,6 +462,15 @@ export class Bento {
     }
   }
 
+  _checkBonding() {
+    const result = this._bonding.checkAndUpdate()
+    if (result && result.isNew && result.milestone) {
+      if (result.milestone.key === 'crown' || result.milestone.key === 'supreme') {
+        this._setAccessory('crown')
+      }
+    }
+  }
+
   _setAccessory(key) {
     this._accessory = key
     this._accessoryTimer = 120 + Math.random() * 60
@@ -530,6 +547,8 @@ export class Bento {
       accessory: this._accessory,
       displayLetter: this._displayLetter,
       displayLetterTimer: this._displayLetterTimer,
+      bonding: this._bonding,
+      halo: this._bonding.hasEffect('halo') || this._bonding.hasEffect('supreme'),
     }
 
     this.skin.drawAntenna(ctx, this.skin.palette, state, this._time)
@@ -548,6 +567,48 @@ export class Bento {
     }
 
     ctx.restore()
+
+    // Bonding milestone effects
+    if (this._bonding.hasEffect('rainbow')) {
+      ctx.save()
+      ctx.globalAlpha = 0.15 + Math.sin(this._time * 2) * 0.1
+      ctx.fillStyle = `hsl(${(this._time * 60) % 360}, 100%, 50%)`
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+      ctx.restore()
+    }
+
+    if (this._bonding.hasEffect('golden')) {
+      ctx.save()
+      ctx.strokeStyle = `rgba(255, 215, 0, ${0.3 + Math.sin(this._time * 1.5) * 0.2})`
+      ctx.lineWidth = 2 * this._scale
+      ctx.strokeRect(1 * this._scale, 1 * this._scale, (this._gridSize - 2) * this._scale, (this._gridSize - 2) * this._scale)
+      ctx.restore()
+    }
+
+    if (this._bonding.hasEffect('sparkles') && Math.random() < 0.1) {
+      const angle = Math.random() * Math.PI * 2
+      const dist = 2 + Math.random() * 6
+      this._spawnParticle(16 + Math.cos(angle) * dist, 16 + Math.sin(angle) * dist, {
+        vx: Math.cos(angle) * 0.5,
+        vy: Math.sin(angle) * 0.5 - 1,
+        life: 0.5,
+        size: 0.2,
+        type: 'sparkle'
+      })
+    }
+
+    if (this._bonding.hasEffect('supreme')) {
+      ctx.save()
+      ctx.globalAlpha = 0.1
+      for (let i = 0; i < 6; i++) {
+        const hue = (this._time * 30 + i * 60) % 360
+        ctx.fillStyle = `hsl(${hue}, 100%, 70%)`
+        ctx.beginPath()
+        ctx.arc(16 * this._scale, 16 * this._scale, (8 + i * 1.5) * this._scale, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.restore()
+    }
 
     this._drawFirefly(ctx)
   }

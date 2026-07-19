@@ -57,6 +57,18 @@ export class BondingTracker {
 
   getStreak() { return this._streak }
 
+  checkAndUpdate() {
+    const prevCount = this._data.notified.length
+    this._streak = this._computeStreak()
+    this._applyMilestones()
+    const newNotified = this._data.notified.slice(prevCount)
+    if (newNotified.length > 0) {
+      const milestone = MILESTONES.find(m => m.streak === newNotified[0])
+      return { streak: this._streak, milestone, isNew: true }
+    }
+    return { streak: this._streak, milestone: null, isNew: false }
+  }
+
   _applyMilestones() {
     for (const m of MILESTONES) {
       if (this._streak >= m.streak && !this._data.notified.includes(m.streak)) {

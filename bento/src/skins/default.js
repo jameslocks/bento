@@ -284,6 +284,16 @@ export const defaultSkin = {
     ctx.arc(cx, topY, isSurprised ? 2.5 : 1.5, 0, Math.PI * 2)
     ctx.fill()
     ctx.globalAlpha = 1
+
+    if (state && state.halo) {
+      ctx.save()
+      ctx.globalAlpha = 0.3 + Math.sin(time * 3) * 0.15
+      ctx.fillStyle = '#ffd700'
+      ctx.beginPath()
+      ctx.ellipse(cx, topY - 3, 3, 1.5, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    }
   },
 
   drawAccessory(ctx, palette, state, time) {

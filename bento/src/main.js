@@ -37,6 +37,9 @@ function init() {
   // Settings
   const settings = new SettingsStore()
   bento._checkBirthday(settings)
+  if (bento._bonding.hasEffect('crown') || bento._bonding.hasEffect('supreme')) {
+    bento._setAccessory('crown')
+  }
 
   const audio = new AudioManager()
   bento.setAudioManager(audio)
