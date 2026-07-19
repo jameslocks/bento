@@ -257,4 +257,28 @@ export class SoundEngine {
     osc.start(now)
     osc.stop(now + 0.15)
   }
+
+  panko() {
+    this._ensureContext()
+    if (!this._ctx) return
+
+    const now = this._ctx.currentTime
+    const osc = this._ctx.createOscillator()
+    const gain = this._ctx.createGain()
+
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(400, now)
+    osc.frequency.setValueAtTime(600, now + 0.2)
+    osc.frequency.setValueAtTime(400, now + 0.3)
+    osc.frequency.setValueAtTime(600, now + 0.5)
+
+    gain.gain.setValueAtTime(0.08, now)
+    gain.gain.linearRampToValueAtTime(0, now + 0.6)
+
+    osc.connect(gain)
+    gain.connect(this._ctx.destination)
+
+    osc.start(now)
+    osc.stop(now + 0.6)
+  }
 }
