@@ -286,7 +286,9 @@ export class Bento {
     }
 
     // Firefly
-    this._firefly.timer -= dt
+    if (!this._firefly.active) {
+      this._firefly.timer -= dt
+    }
     if (!this._firefly.active && this._firefly.timer <= 0) {
       this._firefly.active = true
       this._firefly.angle = Math.random() * Math.PI * 2

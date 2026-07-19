@@ -1,3 +1,5 @@
+import { PankoEvent } from './panko.js'
+
 const STYLES = {
   panel: `
     position: fixed;
@@ -202,6 +204,17 @@ export function initDebugPanel(bento) {
     btn('Show', () => {
       if (letterInput.value) {
         bento.showLetter(letterInput.value.toUpperCase())
+        updateState()
+      }
+    })
+  ])))
+
+  // Panko
+  panel.appendChild(section('Panko', row([
+    btn('Spawn', () => {
+      if (!bento._panko || !bento._panko.isActive()) {
+        bento._panko = new PankoEvent()
+        bento._panko.start(bento)
         updateState()
       }
     })
