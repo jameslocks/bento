@@ -650,7 +650,7 @@ export class Bento {
     this._drawFirefly(ctx)
 
     if (this._panko && this._panko.isActive()) {
-      this._panko.draw(ctx, this._scale, this._getBounceOffset())
+      this._panko.draw(ctx, this._scale, 8 * this._scale)
     }
   }
 

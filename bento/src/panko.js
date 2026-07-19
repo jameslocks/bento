@@ -27,6 +27,7 @@ export class PankoEvent {
     this.rotation = 0
     this.visitCount = this._data.visitCount
     this._bento = null
+    this._bumped = false
   }
 
   start(bento) {
@@ -36,6 +37,7 @@ export class PankoEvent {
     this.phaseTimer = 0
     this.rotation = 0
     this.eyeShape = 'neutral'
+    this._bumped = false
 
     this._data.visitCount++
     this._data.lastVisit = new Date().toISOString().slice(0, 10)
@@ -81,6 +83,7 @@ export class PankoEvent {
     if (bento && bento.sound && bento.sound.panko) {
       bento.sound.panko()
     }
+    bento?.triggerEvent('curious')
   }
 
   update(dt) {
@@ -175,7 +178,8 @@ export class PankoEvent {
     if (this.phase === 'bump') {
       if (this.phaseTimer < 0.5) {
         this.x = 15; this.y = 16
-        if (this.phaseTimer < dt) {
+        if (!this._bumped) {
+          this._bumped = true
           this._bento?.triggerEvent('confused')
         }
       } else if (this.phaseTimer < 1.5) {
