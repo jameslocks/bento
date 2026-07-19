@@ -277,7 +277,7 @@ export const defaultSkin = {
 
     const isSurprised = state && state.mood === 'surprised'
     const isPulsing = state && state.antennaPulse
-    const glow = isSurprised ? 1 : isPulsing ? Math.sin(time * 6) * 0.5 + 0.5 : Math.sin(time * 3) * 0.3 + 0.7
+    const glow = isSurprised ? 1 : isPulsing ? Math.sin(time * 4) * 0.35 + 0.65 : Math.sin(time * 3) * 0.3 + 0.7
 
     ctx.fillStyle = palette.glow
     ctx.globalAlpha = glow
@@ -288,10 +288,12 @@ export const defaultSkin = {
 
     if (state && state.halo) {
       ctx.save()
-      ctx.globalAlpha = 0.3 + Math.sin(time * 3) * 0.15
+      ctx.translate(cx, topY - 5)
+      ctx.rotate(Math.sin(time * 0.5) * 0.15)
+      ctx.globalAlpha = 0.5 + Math.sin(time * 2) * 0.3
       ctx.fillStyle = '#ffd700'
       ctx.beginPath()
-      ctx.ellipse(cx, topY - 3, 3, 1.5, 0, 0, Math.PI * 2)
+      ctx.ellipse(0, 0, 5, 2, 0, 0, Math.PI * 2)
       ctx.fill()
       ctx.restore()
     }

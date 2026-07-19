@@ -92,6 +92,7 @@ export class Bento {
     // Bonding / streaks
     this._bonding = new BondingTracker()
     this._bondCrownActive = false
+    this._bondingCrownTimer = 0
 
     // Tap reaction: 25% chance of spark+glitch instead of happy
     this._tapGlitchChance = 0.25
@@ -219,6 +220,11 @@ export class Bento {
         this._accessory = null
         this._accessoryTimer = 0
       }
+    }
+
+    // Bonding crown timer
+    if (this._bondingCrownTimer > 0) {
+      this._bondingCrownTimer -= dt
     }
 
     // Update current event
@@ -510,7 +516,7 @@ export class Bento {
     const result = this._bonding.checkAndUpdate()
     if (result && result.isNew && result.milestone) {
       if (result.milestone.key === 'crown' || result.milestone.key === 'supreme') {
-        this._setAccessory('crown')
+        this._bondingCrownTimer = 300
       }
     }
   }
@@ -589,6 +595,7 @@ export class Bento {
       timePeriod: getPeriod(),
       timeBlend: getBlend(),
       accessory: this._accessory,
+      bondingCrown: this._bondingCrownTimer > 0,
       displayLetter: this._displayLetter,
       displayLetterTimer: this._displayLetterTimer,
       antennaPulse: this._bonding.hasEffect('antennaPulse'),
@@ -596,10 +603,28 @@ export class Bento {
       halo: this._bonding.hasEffect('halo') || this._bonding.hasEffect('supreme'),
     }
 
+    // Supreme aura (100-day streak) — behind Bento
+    if (this._bonding.hasEffect('supreme')) {
+      ctx.save()
+      ctx.globalAlpha = 0.2
+      for (let i = 0; i < 4; i++) {
+        const hue = (this._time * 30 + i * 90) % 360
+        ctx.fillStyle = `hsl(${hue}, 100%, 70%)`
+        ctx.beginPath()
+        ctx.arc(16, 16, (6 + i * 2), 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.restore()
+    }
+
     this.skin.drawAntenna(ctx, this.skin.palette, state, this._time)
     this.skin.drawHead(ctx, this.skin.palette, state, this._time)
     this.skin.drawEyes(ctx, this.skin.palette, state, this._time)
     this.skin.drawAccessory(ctx, this.skin.palette, state, this._time)
+    if (this._bondingCrownTimer > 0) {
+      const crownAcc = accessories.get('crown')
+      if (crownAcc) crownAcc.draw(ctx, this.skin.palette, state, this._time)
+    }
 
     if (this.mood === 'sleeping') {
       const bob = Math.sin(this._time * 2) * 0.6
@@ -611,40 +636,41 @@ export class Bento {
       ctx.fillText('z', 16.5 + bob * 0.2, 1 + bob)
     }
 
+    // Golden border (25-day streak) — around Bento's head
+    if (this._bonding.hasEffect('golden')) {
+      ctx.strokeStyle = `rgba(255, 215, 0, ${0.4 + Math.sin(this._time * 2) * 0.3})`
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.roundRect(0, 2, 32, 28, 4)
+      ctx.stroke()
+    }
+
     ctx.restore()
 
     // Bonding milestone effects
-    if (this._bonding.hasEffect('golden')) {
-      ctx.save()
-      ctx.strokeStyle = `rgba(255, 215, 0, ${0.3 + Math.sin(this._time * 1.5) * 0.2})`
-      ctx.lineWidth = 2 * this._scale
-      ctx.strokeRect(1 * this._scale, 1 * this._scale, (this._gridSize - 2) * this._scale, (this._gridSize - 2) * this._scale)
-      ctx.restore()
-    }
-
-    if (this._bonding.hasEffect('sparkles') && Math.random() < 0.1) {
+    if (this._bonding.hasEffect('sparkles') && Math.random() < 0.15) {
       const angle = Math.random() * Math.PI * 2
       const dist = 2 + Math.random() * 6
       this._spawnParticle(16 + Math.cos(angle) * dist, 16 + Math.sin(angle) * dist, {
-        vx: Math.cos(angle) * 0.5,
-        vy: Math.sin(angle) * 0.5 - 1,
-        life: 0.5,
-        size: 0.2,
+        vx: Math.cos(angle) * (0.5 + Math.random() * 1),
+        vy: Math.sin(angle) * (0.5 + Math.random() * 1) - 0.5,
+        life: 0.8 + Math.random() * 0.6,
+        size: 0.4 + Math.random() * 0.4,
         type: 'sparkle'
       })
     }
 
-    if (this._bonding.hasEffect('supreme')) {
-      ctx.save()
-      ctx.globalAlpha = 0.1
-      for (let i = 0; i < 6; i++) {
-        const hue = (this._time * 30 + i * 60) % 360
-        ctx.fillStyle = `hsl(${hue}, 100%, 70%)`
-        ctx.beginPath()
-        ctx.arc(16 * this._scale, 16 * this._scale, (8 + i * 1.5) * this._scale, 0, Math.PI * 2)
-        ctx.fill()
-      }
-      ctx.restore()
+    // Supreme sparkle particles
+    if (this._bonding.hasEffect('supreme') && Math.random() < 0.2) {
+      const angle = Math.random() * Math.PI * 2
+      const dist = 3 + Math.random() * 8
+      this._spawnParticle(16 + Math.cos(angle) * dist, 16 + Math.sin(angle) * dist, {
+        vx: Math.cos(angle) * (0.3 + Math.random() * 0.8),
+        vy: Math.sin(angle) * (0.3 + Math.random() * 0.8) - 0.3,
+        life: 1 + Math.random() * 1,
+        size: 0.5 + Math.random() * 0.5,
+        type: 'sparkle'
+      })
     }
 
     this._drawFirefly(ctx)
@@ -659,7 +685,7 @@ export class Bento {
       const sx = p.x * this._scale
       const sy = p.y * this._scale + this._getBounceOffset()
 
-      if (p.type === 'spark') {
+      if (p.type === 'spark' || p.type === 'sparkle') {
         const colors = ['#ffd54f', '#ff4081', '#4fc3f7', '#69f0ae']
         ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)]
         ctx.globalAlpha = p.alpha
