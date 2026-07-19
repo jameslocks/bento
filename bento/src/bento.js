@@ -391,10 +391,17 @@ export class Bento {
     if (e.cancelable) e.preventDefault()
     if (this._happyCooldown > 0) return
 
+    // Convert tap to grid coordinates
+    const rect = this.canvas.getBoundingClientRect()
+    const clientX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX)
+    const clientY = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY)
+
     // Firefly tap interaction
-    if (this._firefly.active) {
-      const dx = 16 - this._firefly.x
-      const dy = 16 - this._firefly.y
+    if (this._firefly.active && clientX != null) {
+      const tapX = (clientX - rect.left) / this._scale
+      const tapY = (clientY - rect.top) / this._scale - 5
+      const dx = this._firefly.x - tapX
+      const dy = this._firefly.y - tapY
       if (Math.sqrt(dx * dx + dy * dy) < 3) {
         this._firefly.active = false
         this._firefly.timer = 60 + Math.random() * 30

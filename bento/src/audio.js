@@ -101,13 +101,13 @@ export class AudioManager {
   async speak(text, voice, instructions, speed) {
     if (!this._apiEndpoint || !this._apiKey) return
     this._ensureContext()
-    if (!this._ctx) return
+    if (!this._audioCtx) return
 
-    const model = voice || 'openai/gpt-4o-mini-tts-2025-12-15'
-    const spd = speed || 1.0
+    const model = voice || this._voiceModel || 'openai/gpt-4o-mini-tts-2025-12-15'
+    const spd = speed || this._voiceSpeed || 1.0
     const body = { model, input: text, voice: 'alloy', response_format: 'mp3', speed: Math.max(0.5, Math.min(2.0, spd)) }
-    if (instructions) {
-      body.provider = { options: { openai: { instructions } } }
+    if (instructions || this._voiceInstructions) {
+      body.provider = { options: { openai: { instructions: instructions || this._voiceInstructions || '' } } }
     }
 
     try {
