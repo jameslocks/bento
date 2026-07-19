@@ -207,6 +207,19 @@ export function initDebugPanel(bento) {
     })
   ])))
 
+  // TTS
+  const ttsInput = el('input', STYLES.input)
+  ttsInput.placeholder = 'Hello!'
+  ttsInput.style.width = '100px'
+  panel.appendChild(section('TTS', row([
+    ttsInput,
+    btn('Speak', () => {
+      if (ttsInput.value && bento._audio && bento._audio.speak) {
+        bento._audio.speak(ttsInput.value)
+      }
+    })
+  ])))
+
   // State
   panel.appendChild(section('State', stateDisplay))
   updateState()
