@@ -606,7 +606,7 @@ export class Bento {
       ctx.save()
       ctx.globalAlpha = 0.15 + Math.sin(this._time * 2) * 0.1
       ctx.fillStyle = `hsl(${(this._time * 60) % 360}, 100%, 50%)`
-      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+      ctx.fillRect(6 * this._scale, (6 + 5) * this._scale, 20 * this._scale, 20 * this._scale)
       ctx.restore()
     }
 
