@@ -54,6 +54,11 @@ function init() {
     audio.setApiConfig(apiEndpoint, apiKey)
   }
 
+  // Voice config
+  const voiceModel = settings.get('voiceModel') || 'openai/gpt-4o-mini-tts-2025-12-15'
+  const voiceSpeed = parseFloat(settings.get('voiceSpeed')) || 1.0
+  const voiceInstructions = settings.get('voiceInstructions') || ''
+
   // Apply educational mode on load
   bento.setEducationalMode(!!settings.get('educationalMode'))
 

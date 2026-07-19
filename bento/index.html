@@ -57,6 +57,18 @@
           <input type="checkbox" name="educationalMode">
           Educational Mode (tap cycles through letters)
         </label>
+        <label>
+          Voice Model
+          <input type="text" name="voiceModel" value="openai/gpt-4o-mini-tts-2025-12-15" autocomplete="off">
+        </label>
+        <label>
+          Voice Speed
+          <input type="number" name="voiceSpeed" value="1.0" min="0.5" max="2.0" step="0.1" autocomplete="off">
+        </label>
+        <label>
+          Voice Instructions
+          <textarea name="voiceInstructions" rows="2" placeholder="Speak like a friendly robot..." autocomplete="off"></textarea>
+        </label>
         <button type="submit" id="settings-save">Save</button>
       </form>
     </div>
