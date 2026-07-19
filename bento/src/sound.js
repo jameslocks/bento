@@ -235,4 +235,26 @@ export class SoundEngine {
     osc.stop(now + 0.4)
     lfo.stop(now + 0.4)
   }
+
+  fireflyChirp() {
+    this._ensureContext()
+    if (!this._ctx) return
+
+    const now = this._ctx.currentTime
+    const osc = this._ctx.createOscillator()
+    const gain = this._ctx.createGain()
+
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(1200, now)
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.15)
+
+    gain.gain.setValueAtTime(0.08, now)
+    gain.gain.linearRampToValueAtTime(0, now + 0.15)
+
+    osc.connect(gain)
+    gain.connect(this._ctx.destination)
+
+    osc.start(now)
+    osc.stop(now + 0.15)
+  }
 }
