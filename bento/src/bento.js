@@ -1,4 +1,5 @@
 import { accessories } from './accessories.js'
+import { getPeriod, getBlend, isNight } from './timekeeper.js'
 export class Bento {
   constructor(canvas, skin, sound) {
     this.canvas = canvas
@@ -220,7 +221,13 @@ export class Bento {
       this._blinkTimer -= dt
       if (this._blinkTimer <= 0) {
         this._isBlinking = true
-        this._blinkTimer = 3 + Math.random() * 2
+        if (isNight()) {
+          this._blinkTimer = 4 + Math.random() * 6
+          this._blinkDuration = 0.25
+        } else {
+          this._blinkTimer = 3 + Math.random() * 2
+          this._blinkDuration = 0.1
+        }
       }
       if (this._isBlinking) {
         this._blinkDuration -= dt
@@ -518,6 +525,8 @@ export class Bento {
       eventBlend: this._event ? (1 - Math.cos((this._eventTime / (this._events[this._event] ?? this._dizzyDuration)) * Math.PI)) / 2 : 0,
       surprisedTimer: this.mood === 'surprised' ? this._surprisedTimer : 0,
       time: this._time,
+      timePeriod: getPeriod(),
+      timeBlend: getBlend(),
       accessory: this._accessory,
       displayLetter: this._displayLetter,
       displayLetterTimer: this._displayLetterTimer,
