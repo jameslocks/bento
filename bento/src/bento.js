@@ -71,7 +71,7 @@ export class Bento {
     // Firefly
     this._firefly = {
       active: false,
-      timer: 20 + Math.random() * 20,
+      timer: 60 + Math.random() * 30,
       x: 16, y: 16,
       angle: 0,
       speed: 1.5,
@@ -79,6 +79,7 @@ export class Bento {
       duration: 8,
       elapsed: 0
     }
+    this._fireflyTrail = []
 
     // Tap reaction: 25% chance of spark+glitch instead of happy
     this._tapGlitchChance = 0.25
@@ -273,11 +274,21 @@ export class Bento {
     if (this._firefly.active) {
       this._firefly.elapsed += dt
       this._firefly.angle += this._firefly.speed * dt
-      this._firefly.x = 16 + Math.cos(this._firefly.angle) * this._firefly.radius
-      this._firefly.y = 16 + Math.sin(this._firefly.angle) * (this._firefly.radius * 0.6)
+
+      const cx = 16
+      const radius = this._firefly.radius
+      this._firefly.x = cx + radius * Math.sin(this._firefly.angle)
+      this._firefly.y = 16 + radius * Math.sin(2 * this._firefly.angle)
+
+      // Trail
+      this._fireflyTrail.push({ x: this._firefly.x, y: this._firefly.y })
+      if (this._fireflyTrail.length > 8) {
+        this._fireflyTrail.shift()
+      }
+
       if (this._firefly.elapsed >= this._firefly.duration) {
         this._firefly.active = false
-        this._firefly.timer = 20 + Math.random() * 20
+        this._fireflyTrail = []
       }
     }
 
@@ -338,6 +349,31 @@ export class Bento {
   _handleTap(e) {
     if (e.cancelable) e.preventDefault()
     if (this._happyCooldown > 0) return
+
+    // Firefly tap interaction
+    if (this._firefly.active) {
+      const dx = 16 - this._firefly.x
+      const dy = 16 - this._firefly.y
+      if (Math.sqrt(dx * dx + dy * dy) < 3) {
+        this._firefly.active = false
+        this._firefly.timer = 60 + Math.random() * 30
+        this._fireflyTrail = []
+        this.sound.fireflyChirp()
+        // Sparkle burst
+        for (let i = 0; i < 6; i++) {
+          const angle = Math.random() * Math.PI * 2
+          const speed = 1 + Math.random() * 2
+          this._spawnParticle(this._firefly.x, this._firefly.y, {
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.6 + Math.random() * 0.4,
+            size: 0.3 + Math.random() * 0.3,
+            type: 'spark'
+          })
+        }
+        return
+      }
+    }
 
     if (this._educationalMode) {
       this._handleEducationalTap()
@@ -534,6 +570,18 @@ export class Bento {
     const fadeIn = Math.min(1, this._firefly.elapsed / 0.5)
     const fadeOut = Math.min(1, (this._firefly.duration - this._firefly.elapsed) / 0.5)
     const alpha = glow * fadeIn * fadeOut
+
+    // Trail
+    const trailCount = this._fireflyTrail.length
+    for (let i = 0; i < trailCount; i++) {
+      const t = this._fireflyTrail[i]
+      const tAlpha = (i / trailCount) * alpha * 0.4
+      const tSize = (0.5 + (i / trailCount) * 1.5) * s
+      ctx.fillStyle = `rgba(100, 255, 150, ${tAlpha})`
+      ctx.beginPath()
+      ctx.arc(t.x * s, t.y * s + this._getBounceOffset(), tSize, 0, Math.PI * 2)
+      ctx.fill()
+    }
 
     // Glow
     ctx.fillStyle = `rgba(100, 255, 150, ${alpha * 0.3})`
