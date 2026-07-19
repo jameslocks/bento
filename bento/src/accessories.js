@@ -122,7 +122,43 @@ function drawEarmuffs(ctx, palette, state, time) {
   ctx.stroke()
 }
 
+function drawCrown(ctx, palette, state, time) {
+  const cx = 16
+  const topY = 3
+
+  ctx.fillStyle = '#ffd700'
+  ctx.strokeStyle = '#b8860b'
+  ctx.lineWidth = 0.5
+
+  // Crown shape: 3 points
+  ctx.beginPath()
+  ctx.moveTo(cx - 6, topY + 4)
+  ctx.lineTo(cx - 6, topY - 2)
+  ctx.lineTo(cx - 4, topY - 0)
+  ctx.lineTo(cx, topY - 5)
+  ctx.lineTo(cx + 4, topY - 0)
+  ctx.lineTo(cx + 6, topY - 2)
+  ctx.lineTo(cx + 6, topY + 4)
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+
+  // Jewels
+  ctx.fillStyle = '#ff4081'
+  ctx.beginPath()
+  ctx.arc(cx, topY - 2, 0.8, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#4fc3f7'
+  ctx.beginPath()
+  ctx.arc(cx - 4, topY + 1, 0.6, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(cx + 4, topY + 1, 0.6, 0, Math.PI * 2)
+  ctx.fill()
+}
+
 accessories.set('partyhat', { key: 'partyhat', name: 'Party Hat', draw: drawPartyHat })
 accessories.set('bowtie', { key: 'bowtie', name: 'Bowtie', draw: drawBowtie })
 accessories.set('sunglasses', { key: 'sunglasses', name: 'Sunglasses', draw: drawSunglasses })
 accessories.set('earmuffs', { key: 'earmuffs', name: 'Earmuffs', draw: drawEarmuffs })
+accessories.set('crown', { key: 'crown', name: 'Crown', draw: drawCrown })
