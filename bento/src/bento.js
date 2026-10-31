@@ -2,6 +2,34 @@ import { PankoEvent } from './panko.js'
 import { accessories } from './accessories.js'
 import { getPeriod, getBlend, isNight } from './timekeeper.js'
 import { BondingTracker } from './bonding.js'
+import { Firefly } from './firefly.js'
+import { ParticleSystem } from './particles.js'
+
+const GRID = 32
+const CENTER = GRID / 2
+/** The sprite is drawn this many grid units down to leave headroom for accessories. */
+const SPRITE_Y_OFFSET = 8
+const MAX_DT = 0.1
+
+/** Event name -> duration in seconds. */
+const EVENT_DURATIONS = {
+  glitch: 0.5,
+  spin: 0.8,
+  sneeze: 0.6,
+  rainbow: 1.2,
+  heart: 1.8,
+  curious: 2.0,
+  excited: 1.2,
+  confused: 1.5,
+  dizzy: 2.0
+}
+/** Events that can start on their own while idle. */
+const RANDOM_EVENTS = Object.keys(EVENT_DURATIONS).filter(e => e !== 'dizzy')
+
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+const rand = (min, max) => min + Math.random() * (max - min)
+const pick = (list) => list[Math.floor(Math.random() * list.length)]
+
 export class Bento {
   constructor(canvas, skin, sound) {
     this.canvas = canvas
@@ -9,117 +37,77 @@ export class Bento {
     this.skin = skin
     this.sound = sound
 
-    this._gridSize = 32
     this._scale = 1
+    this._cssWidth = 0
+    this._cssHeight = 0
     this._resize()
 
     this._rafId = null
     this._lastTime = 0
     this._time = 0
 
-    // State machine
+    // Mood state machine: idle | happy | sleeping | surprised
     this.mood = 'idle'
     this._happyTimer = 0
     this._happyCooldown = 0
     this._moodBlend = 0
+    this._surprisedTimer = 0
+    this._napTimer = rand(30, 60)
+    this._napDuration = 0
 
-    // Idle animation state
-    this._blinkTimer = 3 + Math.random() * 2
+    // Idle animation
+    this._blinkTimer = rand(3, 5)
     this._isBlinking = false
     this._blinkDuration = 0.1
-    this._chirpTimer = 8 + Math.random() * 7
-
-    // Gaze movement (idle only)
+    this._chirpTimer = rand(8, 15)
     this._lookX = 0
     this._lookY = 0
     this._lookTargetX = 0
     this._lookTargetY = 0
-    this._lookTimer = 2 + Math.random() * 2
+    this._lookTimer = rand(2, 4)
 
-    // Nap state
-    this._napTimer = 30 + Math.random() * 30
-    this._napDuration = 0
-
-    // Random events
+    // Timed events
     this._event = null
     this._eventTime = 0
-    this._eventCheckTimer = 10 + Math.random() * 15
-    this._events = {
-      glitch: 0.5,
-      spin: 0.8,
-      sneeze: 0.6,
-      rainbow: 1.2,
-      heart: 1.8,
-      curious: 2.0,
-      excited: 1.2,
-      confused: 1.5
-    }
-    this._dizzyDuration = 2.0
+    this._eventCheckTimer = rand(10, 25)
 
-    // Accessory state
+    // Accessories
     this._accessory = null
     this._accessoryTimer = 0
-    this._accessoryCheckTimer = 10 + Math.random() * 15
+    this._accessoryCheckTimer = rand(10, 25)
 
-    // Letter display
+    // Letter display / educational mode
     this._displayLetter = null
     this._displayLetterTimer = 0
+    this._educationalMode = false
+    this._letterIndex = 0
+    this.audio = null
 
-    // Surprised state (wake from sleep)
-    this._surprisedTimer = 0
+    this._particles = new ParticleSystem()
+    this.firefly = new Firefly()
 
-    // Particles
-    this._particles = []
-
-    // Firefly
-    this._firefly = {
-      active: false,
-      timer: 60 + Math.random() * 30,
-      x: 16, y: 16,
-      angle: 0,
-      speed: 1.5,
-      radius: 12,
-      duration: 8,
-      elapsed: 0
-    }
-    this._fireflyTrail = []
-
-    // Panko event
-    this._panko = null
-    this._pankoCheckTimer = 15 + Math.random() * 10
+    // Panko visitor
+    this.panko = null
+    this._pankoCheckTimer = rand(15, 25)
     this._lastPankoTime = 0
 
     // Bonding / streaks
-    this._bonding = new BondingTracker()
-    this._bondCrownActive = false
+    this.bonding = new BondingTracker()
     this._bondingCrownTimer = 0
+    this._bondingCheckTimer = 60
+    this._handleBondingResult(this.bonding.checkAndUpdate())
+    if (this.bonding.hasEffect('crown') || this.bonding.hasEffect('supreme')) {
+      this.setAccessory('crown')
+    }
 
-    // Tap reaction: 25% chance of spark+glitch instead of happy
+    // 25% of taps cause a spark+glitch instead of a happy reaction
     this._tapGlitchChance = 0.25
 
-    // Educational mode
-    this._educationalMode = false
-    this._letterIndex = 0
-    this._letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    this._audio = null
-
-    // Tap handler
     this._onTap = this._handleTap.bind(this)
     this.canvas.addEventListener('click', this._onTap)
-    this.canvas.addEventListener('touchstart', this._onTap, { passive: false })
   }
 
-  _resize() {
-    const displaySize = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.8)
-    const size = Math.min(displaySize, 640)
-    this._scale = Math.max(4, Math.floor(size / this._gridSize))
-    const w = size
-    const h = Math.round(size * 1.5)
-    this.canvas.width = w
-    this.canvas.height = h
-    this.canvas.style.width = w + 'px'
-    this.canvas.style.height = h + 'px'
-  }
+  // ---------------------------------------------------------------- lifecycle
 
   start() {
     this._lastTime = performance.now()
@@ -133,11 +121,28 @@ export class Bento {
   destroy() {
     if (this._rafId) cancelAnimationFrame(this._rafId)
     this.canvas.removeEventListener('click', this._onTap)
-    this.canvas.removeEventListener('touchstart', this._onTap)
+  }
+
+  setSkin(skin) {
+    this.skin = skin
+  }
+
+  _resize() {
+    const available = Math.min(window.innerWidth * 0.9, window.innerHeight * 0.8, 640)
+    this._scale = Math.max(4, Math.floor(available / GRID))
+    this._cssWidth = this._scale * GRID
+    this._cssHeight = Math.round(this._cssWidth * 1.5)
+
+    const dpr = window.devicePixelRatio || 1
+    this.canvas.width = Math.round(this._cssWidth * dpr)
+    this.canvas.height = Math.round(this._cssHeight * dpr)
+    this.canvas.style.width = this._cssWidth + 'px'
+    this.canvas.style.height = this._cssHeight + 'px'
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   }
 
   _loop(timestamp) {
-    const dt = (timestamp - this._lastTime) / 1000
+    const dt = Math.min(MAX_DT, (timestamp - this._lastTime) / 1000)
     this._lastTime = timestamp
     this._time += dt
 
@@ -147,107 +152,191 @@ export class Bento {
     this._rafId = requestAnimationFrame((t) => this._loop(t))
   }
 
-  _update(dt) {
-    // Bonding check
-    this._checkBonding()
+  // ------------------------------------------------------------- public API
 
-    // Happy state
+  /** Start a named event (see EVENT_DURATIONS). Unknown names are ignored. */
+  triggerEvent(name) {
+    if (!(name in EVENT_DURATIONS)) return
+    this._event = name
+    this._eventTime = 0
+    this._onEventStart(name)
+  }
+
+  triggerRandomEvent() {
+    this.triggerEvent(pick(RANDOM_EVENTS))
+  }
+
+  clearEvent() {
+    this._event = null
+    this._eventTime = 0
+  }
+
+  triggerDizzy() {
+    this.mood = 'idle'
+    this.triggerEvent('dizzy')
+  }
+
+  makeHappy() {
+    this.mood = 'happy'
+    this._happyTimer = 1.5
+    this._happyCooldown = 1.5
+    this.sound.happy()
+  }
+
+  sleep(duration = 5) {
+    this.mood = 'sleeping'
+    this._napDuration = duration
+  }
+
+  surprise() {
+    this.mood = 'surprised'
+    this._surprisedTimer = 0.5
+  }
+
+  becomeIdle() {
+    this.mood = 'idle'
+    this.clearEvent()
+  }
+
+  setAccessory(key) {
+    this._accessory = key
+    this._accessoryTimer = rand(120, 180)
+  }
+
+  clearAccessory() {
+    this._accessory = null
+    this._accessoryTimer = 0
+  }
+
+  /** Put on a party hat if today is the given birthday. */
+  applyBirthday(month, day) {
+    const today = new Date()
+    if (month === today.getMonth() + 1 && day === today.getDate()) {
+      this.setAccessory('partyhat')
+    }
+  }
+
+  spawnPanko() {
+    if (this.panko?.isActive()) return
+    this.panko = new PankoEvent()
+    this.panko.start(this)
+  }
+
+  setAudioManager(audio) {
+    this.audio = audio
+  }
+
+  setEducationalMode(enabled) {
+    this._educationalMode = enabled
+    this._letterIndex = 0
+  }
+
+  showLetter(letter) {
+    this._displayLetter = letter
+    this._displayLetterTimer = 3
+  }
+
+  /** Snapshot of internal state for the debug panel. */
+  debugState() {
+    return {
+      mood: this.mood,
+      event: this._event,
+      accessory: this._accessory,
+      educationalMode: this._educationalMode,
+      streak: this.bonding.getStreak(),
+      effects: this.bonding.getActiveMilestones()
+    }
+  }
+
+  // ----------------------------------------------------------------- update
+
+  _update(dt) {
+    this._updateMood(dt)
+    this._updateEvents(dt)
+    this._updateAccessory(dt)
+    this._updateIdleBehaviour(dt)
+    this._updateBonding(dt)
+
+    this.firefly.update(dt)
+    this._updatePanko(dt)
+    this._particles.update(dt)
+
+    if (this._displayLetter) {
+      this._displayLetterTimer -= dt
+      if (this._displayLetterTimer <= 0) this._displayLetter = null
+    }
+  }
+
+  _updateMood(dt) {
     if (this.mood === 'happy') {
       this._happyTimer -= dt
-      if (this._happyTimer <= 0) {
-        this.mood = 'idle'
-      }
-    }
-
-    // Surprised state
-    if (this.mood === 'surprised') {
+      if (this._happyTimer <= 0) this.mood = 'idle'
+    } else if (this.mood === 'surprised') {
       this._surprisedTimer -= dt
-      if (this._surprisedTimer <= 0) {
-        this.mood = 'happy'
-      }
-    }
-
-    // Sleeping state
-    if (this.mood === 'sleeping') {
+      if (this._surprisedTimer <= 0) this.mood = 'happy'
+    } else if (this.mood === 'sleeping') {
       this._napDuration -= dt
-      if (this._napDuration <= 0) {
-        this.mood = 'idle'
+      if (this._napDuration <= 0) this.mood = 'idle'
+    }
+
+    if (this._happyCooldown > 0) this._happyCooldown -= dt
+
+    const happyish = this.mood === 'happy' || this.mood === 'surprised'
+    this._moodBlend = happyish
+      ? Math.min(1, this._moodBlend + dt * 3)
+      : Math.max(0, this._moodBlend - dt * 5)
+
+    if (this.mood === 'idle') {
+      this._napTimer -= dt
+      if (this._napTimer <= 0) {
+        if (Math.random() < 0.3) this.sleep(5)
+        this._napTimer = rand(20, 40)
       }
     }
+  }
 
-    // Cooldown
-    if (this._happyCooldown > 0) {
-      this._happyCooldown -= dt
-    }
-
-    // Mood blend
-    if (this.mood === 'happy' || this.mood === 'surprised') {
-      this._moodBlend = Math.min(1, this._moodBlend + dt * 3)
-    } else {
-      this._moodBlend = Math.max(0, this._moodBlend - dt * 5)
-    }
-
-    // Random events during idle
+  _updateEvents(dt) {
     if (this.mood === 'idle' && !this._event) {
       this._eventCheckTimer -= dt
       if (this._eventCheckTimer <= 0) {
-        if (Math.random() < 0.35) {
-          const keys = Object.keys(this._events)
-          this._event = keys[Math.floor(Math.random() * keys.length)]
-          this._eventTime = 0
-          this._onEventStart(this._event)
-        }
-        this._eventCheckTimer = 10 + Math.random() * 15
+        if (Math.random() < 0.35) this.triggerRandomEvent()
+        this._eventCheckTimer = rand(10, 25)
       }
     }
 
-    // Accessory random events (very rare)
+    if (this._event) {
+      this._eventTime += dt
+      if (this._eventTime >= EVENT_DURATIONS[this._event]) this.clearEvent()
+    }
+  }
+
+  _updateAccessory(dt) {
     if (this.mood === 'idle' && !this._event && !this._accessory) {
       this._accessoryCheckTimer -= dt
       if (this._accessoryCheckTimer <= 0) {
         if (Math.random() < 0.05) {
-          const keys = Array.from(accessories.keys())
-          this._setAccessory(keys[Math.floor(Math.random() * keys.length)])
+          // 'crown' is reserved for streak rewards
+          this.setAccessory(pick([...accessories.keys()].filter(k => k !== 'crown')))
         }
-        this._accessoryCheckTimer = 10 + Math.random() * 15
+        this._accessoryCheckTimer = rand(10, 25)
       }
     }
 
-    // Update accessory timer
     if (this._accessory) {
       this._accessoryTimer -= dt
-      if (this._accessoryTimer <= 0) {
-        this._accessory = null
-        this._accessoryTimer = 0
-      }
+      if (this._accessoryTimer <= 0) this.clearAccessory()
     }
+  }
 
-    // Bonding crown timer
-    if (this._bondingCrownTimer > 0) {
-      this._bondingCrownTimer -= dt
-    }
-
-    // Update current event
-    if (this._event) {
-      this._eventTime += dt
-      if (this._eventTime >= (this._events[this._event] ?? this._dizzyDuration)) {
-        this._event = null
-        this._eventTime = 0
-      }
-    }
-
-    // Blink (not when sleeping or during events)
+  _updateIdleBehaviour(dt) {
+    // Blink (not while sleeping or during events)
     if (this.mood !== 'sleeping' && !this._event) {
       this._blinkTimer -= dt
       if (this._blinkTimer <= 0) {
         this._isBlinking = true
-        if (isNight()) {
-          this._blinkTimer = 4 + Math.random() * 6
-          this._blinkDuration = 0.25
-        } else {
-          this._blinkTimer = 3 + Math.random() * 2
-          this._blinkDuration = 0.1
-        }
+        const night = isNight()
+        this._blinkTimer = night ? rand(4, 10) : rand(3, 5)
+        this._blinkDuration = night ? 0.25 : 0.1
       }
       if (this._isBlinking) {
         this._blinkDuration -= dt
@@ -256,189 +345,107 @@ export class Bento {
           this._blinkDuration = 0.1
         }
       }
+
+      this._chirpTimer -= dt
+      if (this._chirpTimer <= 0) {
+        this.sound.chirp()
+        this._chirpTimer = rand(8, 15)
+      }
     }
 
-    // Gaze movement (idle only)
+    // Gaze wander (idle only)
     if (this.mood === 'idle' && !this._isBlinking && !this._event) {
       this._lookTimer -= dt
       if (this._lookTimer <= 0) {
         this._lookTargetX = (Math.random() - 0.5) * 3
         this._lookTargetY = (Math.random() - 0.5) * 1.5
-        this._lookTimer = 2 + Math.random() * 3
+        this._lookTimer = rand(2, 5)
       }
       this._lookX += (this._lookTargetX - this._lookX) * dt * 5
       this._lookY += (this._lookTargetY - this._lookY) * dt * 5
     }
+  }
 
-    // Autonomous chirp (not while sleeping)
-    if (this.mood !== 'sleeping' && !this._event) {
-      this._chirpTimer -= dt
-      if (this._chirpTimer <= 0) {
-        this.sound.chirp()
-        this._chirpTimer = 8 + Math.random() * 7
+  _updateBonding(dt) {
+    // Streaks only change when the calendar day does, so check occasionally.
+    this._bondingCheckTimer -= dt
+    if (this._bondingCheckTimer <= 0) {
+      this._bondingCheckTimer = 60
+      this._handleBondingResult(this.bonding.checkAndUpdate())
+    }
+
+    if (this._bondingCrownTimer > 0) this._bondingCrownTimer -= dt
+
+    // Ambient sparkles, rates are per-frame probabilities at 60fps.
+    const frames = dt * 60
+    if (this.bonding.hasEffect('sparkles') && Math.random() < 0.15 * frames) {
+      this._spawnSparkle(2, 8, 1, 0.8, 1.4)
+    }
+    if (this.bonding.hasEffect('supreme') && Math.random() < 0.2 * frames) {
+      this._spawnSparkle(3, 11, 0.8, 1, 2)
+    }
+  }
+
+  _spawnSparkle(minDist, maxDist, speed, minLife, maxLife) {
+    const angle = Math.random() * Math.PI * 2
+    const dist = rand(minDist, maxDist)
+    this._particles.spawn(
+      CENTER + Math.cos(angle) * dist,
+      CENTER + Math.sin(angle) * dist,
+      {
+        vx: Math.cos(angle) * rand(0.3, 0.3 + speed),
+        vy: Math.sin(angle) * rand(0.3, 0.3 + speed) - 0.4,
+        life: rand(minLife, maxLife),
+        size: rand(0.4, 0.9)
       }
-    }
+    )
+  }
 
-    // Nap decision
-    if (this.mood === 'idle') {
-      this._napTimer -= dt
-      if (this._napTimer <= 0) {
-        if (Math.random() < 0.3) {
-          this.mood = 'sleeping'
-          this._napDuration = 5
-        }
-        this._napTimer = 20 + Math.random() * 20
-      }
-    }
+  _handleBondingResult(result) {
+    const key = result.milestone?.key
+    if (key === 'crown' || key === 'supreme') this._bondingCrownTimer = 300
+  }
 
-    // Firefly
-    if (!this._firefly.active) {
-      this._firefly.timer -= dt
-    }
-    if (!this._firefly.active && this._firefly.timer <= 0) {
-      this._firefly.active = true
-      this._firefly.angle = Math.random() * Math.PI * 2
-      this._firefly.elapsed = 0
-    }
-    if (this._firefly.active) {
-      this._firefly.elapsed += dt
-      this._firefly.angle += this._firefly.speed * dt
-
-      const cx = 16
-      const radius = this._firefly.radius
-      this._firefly.x = cx + radius * Math.sin(this._firefly.angle)
-      this._firefly.y = 16 + radius * Math.sin(2 * this._firefly.angle)
-
-      // Trail
-      this._fireflyTrail.push({ x: this._firefly.x, y: this._firefly.y })
-      if (this._fireflyTrail.length > 8) {
-        this._fireflyTrail.shift()
-      }
-
-      if (this._firefly.elapsed >= this._firefly.duration) {
-        this._firefly.active = false
-        this._firefly.timer = 60 + Math.random() * 30
-        this._fireflyTrail = []
-      }
-    }
-
-    // Panko event
-    if (this._panko && this._panko.isActive()) {
-      this._panko.update(dt)
-      if (!this._panko.isActive()) {
-        this._panko = null
+  _updatePanko(dt) {
+    if (this.panko) {
+      this.panko.update(dt)
+      if (!this.panko.isActive()) {
+        this.panko = null
         this._lastPankoTime = this._time
       }
-    } else if (!this._panko && this.mood === 'idle' && !this._event && !this._accessory) {
-      if (this._time - this._lastPankoTime > 300) {
-        this._pankoCheckTimer -= dt
-        if (this._pankoCheckTimer <= 0) {
-          if (Math.random() < 0.02) {
-            this._panko = new PankoEvent()
-            this._panko.start(this)
-          }
-          this._pankoCheckTimer = 15 + Math.random() * 10
-        }
-      }
+      return
     }
 
-    // Update particles
-    for (let i = this._particles.length - 1; i >= 0; i--) {
-      const p = this._particles[i]
-      p.x += p.vx * dt * 60
-      p.y += p.vy * dt * 60
-      p.life -= dt
-      p.alpha = Math.max(0, p.life / p.maxLife)
-      p.size += dt * 0.3
-      if (p.life <= 0) {
-        this._particles.splice(i, 1)
+    const quiet = this.mood === 'idle' && !this._event && !this._accessory
+    if (quiet && this._time - this._lastPankoTime > 300) {
+      this._pankoCheckTimer -= dt
+      if (this._pankoCheckTimer <= 0) {
+        if (Math.random() < 0.02) this.spawnPanko()
+        this._pankoCheckTimer = rand(15, 25)
       }
     }
-
-    this._updateLetterDisplay(dt)
   }
 
   _onEventStart(event) {
-    switch (event) {
-      case 'sneeze':
-        this.sound.sneeze()
-        break
-      case 'glitch':
-        this.sound.glitch()
-        break
-    }
+    if (event === 'sneeze') this.sound.sneeze()
+    else if (event === 'glitch') this.sound.glitch()
+    else if (event === 'dizzy') this.sound.dizzy()
   }
 
-  _spawnParticle(x, y, opts = {}) {
-    this._particles.push({
-      x, y,
-      vx: opts.vx || 0,
-      vy: opts.vy || 0,
-      life: opts.life || 1,
-      maxLife: opts.life || 1,
-      size: opts.size || 0.5,
-      alpha: 1,
-      type: opts.type || 'dot'
-    })
-  }
-
-  _spawnSparks() {
-    for (let i = 0; i < 8; i++) {
-      const angle = Math.random() * Math.PI * 2
-      const speed = 1 + Math.random() * 2
-      this._spawnParticle(16, 16, {
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        life: 1.5 + Math.random() * 1.0,
-        size: 0.3 + Math.random() * 0.3,
-        type: 'spark'
-      })
-    }
-  }
+  // ------------------------------------------------------------------ input
 
   _handleTap(e) {
     if (e.cancelable) e.preventDefault()
     if (this._happyCooldown > 0) return
 
-    // Convert tap to grid coordinates
-    const rect = this.canvas.getBoundingClientRect()
-    const clientX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX)
-    const clientY = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY)
-
-    // Firefly tap interaction
-    if (this._firefly.active && clientX != null) {
-      const tapX = (clientX - rect.left) / this._scale
-      const tapY = (clientY - rect.top) / this._scale - 5
-      const dx = this._firefly.x - tapX
-      const dy = this._firefly.y - tapY
-      if (Math.sqrt(dx * dx + dy * dy) < 3) {
-        this._firefly.active = false
-        this._firefly.timer = 60 + Math.random() * 30
-        this._fireflyTrail = []
-        this.sound.fireflyChirp()
-        // Sparkle burst
-        for (let i = 0; i < 6; i++) {
-          const angle = Math.random() * Math.PI * 2
-          const speed = 1 + Math.random() * 2
-          this._spawnParticle(this._firefly.x, this._firefly.y, {
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: 0.6 + Math.random() * 0.4,
-            size: 0.3 + Math.random() * 0.3,
-            type: 'spark'
-          })
-        }
-        return
-      }
-    }
+    if (this._tryCatchFirefly(e.clientX, e.clientY)) return
 
     if (this._educationalMode) {
       this._handleEducationalTap()
       return
     }
 
-    this._event = null
-    this._eventTime = 0
+    this.clearEvent()
 
     if (this.mood === 'sleeping') {
       this.mood = 'surprised'
@@ -447,140 +454,56 @@ export class Bento {
       this._happyCooldown = 1.5
       this._moodBlend = 1
       this.sound.surprise()
-      this._spawnSparks()
+      this._sparks()
       return
     }
 
-    // Random chance of spark+glitch instead of happy
     if (Math.random() < this._tapGlitchChance) {
       this.mood = 'idle'
-      this._event = 'glitch'
-      this._eventTime = 0
+      this.triggerEvent('glitch')
       this._happyCooldown = 0.5
-      this.sound.glitch()
-      this._spawnSparks()
+      this._sparks()
       return
     }
 
-    this.mood = 'happy'
-    this._happyTimer = 1.5
-    this._happyCooldown = 1.5
-    this.sound.happy()
+    this.makeHappy()
   }
 
-  triggerEvent(name) {
-    if (this._events[name]) {
-      this._event = name
-      this._eventTime = 0
-      this._onEventStart(name)
-    }
+  _tryCatchFirefly(clientX, clientY) {
+    if (!this.firefly.active) return false
+    const rect = this.canvas.getBoundingClientRect()
+    // The firefly is drawn with the bounce offset but without the sprite offset.
+    const x = (clientX - rect.left) / this._scale
+    const y = (clientY - rect.top - this._getBounceOffset()) / this._scale
+    if (!this.firefly.hit(x, y)) return false
+
+    const { x: fx, y: fy } = this.firefly
+    this.firefly.dismiss()
+    this.sound.fireflyChirp()
+    this._particles.burst(fx, fy, 6, { speed: [1, 3], life: [0.6, 1.0] })
+    return true
   }
 
-  triggerDizzy() {
-    this.mood = 'idle'
-    this._event = 'dizzy'
-    this._eventTime = 0
-    this.sound.dizzy()
-  }
-
-  setAudioManager(audio) {
-    this._audio = audio
-  }
-
-  setEducationalMode(enabled) {
-    this._educationalMode = enabled
-    this._letterIndex = 0
+  _sparks() {
+    this._particles.burst(CENTER, CENTER, 8)
   }
 
   _handleEducationalTap() {
-    const letter = this._letters[this._letterIndex]
+    const letter = LETTERS[this._letterIndex]
     this.showLetter(letter)
-    if (this._audio) {
-      this._audio.play(letter.toLowerCase())
-    }
-    this._letterIndex = (this._letterIndex + 1) % this._letters.length
+    this.audio?.play(letter.toLowerCase())
+    this._letterIndex = (this._letterIndex + 1) % LETTERS.length
   }
 
-  _checkBirthday(settings) {
-    const today = new Date()
-    const month = today.getMonth() + 1
-    const day = today.getDate()
-    const birthMonth = parseInt(settings.get('birthMonth'), 10)
-    const birthDay = parseInt(settings.get('birthDay'), 10)
-    if (birthMonth === month && birthDay === day) {
-      this._setAccessory('partyhat')
-    }
+  // ------------------------------------------------------------------- draw
+
+  _eventProgress() {
+    return this._event ? Math.min(1, this._eventTime / EVENT_DURATIONS[this._event]) : 0
   }
 
-  _checkBonding() {
-    const result = this._bonding.checkAndUpdate()
-    if (result && result.isNew && result.milestone) {
-      if (result.milestone.key === 'crown' || result.milestone.key === 'supreme') {
-        this._bondingCrownTimer = 300
-      }
-    }
-  }
-
-  _setAccessory(key) {
-    this._accessory = key
-    this._accessoryTimer = 120 + Math.random() * 60
-  }
-
-  showLetter(letter) {
-    this._displayLetter = letter
-    this._displayLetterTimer = 3
-  }
-
-  _updateLetterDisplay(dt) {
-    if (this._displayLetter) {
-      this._displayLetterTimer -= dt
-      if (this._displayLetterTimer <= 0) {
-        this._displayLetter = null
-      }
-    }
-  }
-
-  _draw() {
-    const ctx = this.ctx
-
-    ctx.fillStyle = '#2c2c2c'
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-
-    this._drawParticles(ctx)
-
-    ctx.save()
-    ctx.translate(0, this._getBounceOffset())
-    ctx.scale(this._scale, this._scale)
-    ctx.translate(0, 8)
-
-    if (this._event === 'spin') {
-      const progress = this._eventTime / this._events.spin
-      ctx.translate(16, 16)
-      ctx.rotate(progress * Math.PI * 2)
-      ctx.translate(-16, -16)
-    }
-
-    if (this._event === 'curious') {
-      ctx.translate(16, 16)
-      ctx.rotate(0.08)
-      ctx.translate(-16, -16)
-    }
-
-    if (this._event === 'confused') {
-      ctx.translate(16, 16)
-      ctx.rotate(-0.05)
-      ctx.translate(-16, -16)
-    }
-
-    if (this._event === 'dizzy') {
-      const p = this._eventTime / this._dizzyDuration
-      const decay = 1 - p
-      ctx.translate(16, 16)
-      ctx.rotate(Math.sin(this._eventTime * 30) * 0.05 * decay)
-      ctx.translate(-16, -16)
-    }
-
-    const state = {
+  _drawState() {
+    const progress = this._eventProgress()
+    return {
       mood: this.mood,
       blend: this._moodBlend,
       blink: this._isBlinking,
@@ -589,7 +512,8 @@ export class Bento {
       napDuration: this.mood === 'sleeping' ? this._napDuration : 0,
       event: this._event,
       eventTime: this._eventTime,
-      eventBlend: this._event ? (1 - Math.cos((this._eventTime / (this._events[this._event] ?? this._dizzyDuration)) * Math.PI)) / 2 : 0,
+      eventProgress: progress,
+      eventBlend: this._event ? (1 - Math.cos(progress * Math.PI)) / 2 : 0,
       surprisedTimer: this.mood === 'surprised' ? this._surprisedTimer : 0,
       time: this._time,
       timePeriod: getPeriod(),
@@ -598,185 +522,97 @@ export class Bento {
       bondingCrown: this._bondingCrownTimer > 0,
       displayLetter: this._displayLetter,
       displayLetterTimer: this._displayLetterTimer,
-      antennaPulse: this._bonding.hasEffect('antennaPulse'),
-      bonding: this._bonding,
-      halo: this._bonding.hasEffect('halo') || this._bonding.hasEffect('supreme'),
+      antennaPulse: this.bonding.hasEffect('antennaPulse'),
+      golden: this.bonding.hasEffect('golden'),
+      supreme: this.bonding.hasEffect('supreme'),
+      halo: this.bonding.hasEffect('halo') || this.bonding.hasEffect('supreme')
     }
+  }
 
-    // Supreme aura (100-day streak) — behind Bento
-    if (this._bonding.hasEffect('supreme')) {
-      ctx.save()
-      ctx.globalAlpha = 0.2
-      for (let i = 0; i < 4; i++) {
-        const hue = (this._time * 30 + i * 90) % 360
-        ctx.fillStyle = `hsl(${hue}, 100%, 70%)`
-        ctx.beginPath()
-        ctx.arc(16, 16, (6 + i * 2), 0, Math.PI * 2)
-        ctx.fill()
-      }
-      ctx.restore()
-    }
+  _draw() {
+    const ctx = this.ctx
+    const skin = this.skin
+    const scale = this._scale
+    const bounce = this._getBounceOffset()
+    const state = this._drawState()
 
-    this.skin.drawAntenna(ctx, this.skin.palette, state, this._time)
-    this.skin.drawHead(ctx, this.skin.palette, state, this._time)
-    this.skin.drawEyes(ctx, this.skin.palette, state, this._time)
-    this.skin.drawAccessory(ctx, this.skin.palette, state, this._time)
-    if (this._bondingCrownTimer > 0) {
-      const crownAcc = accessories.get('crown')
-      if (crownAcc) crownAcc.draw(ctx, this.skin.palette, state, this._time)
-    }
+    ctx.fillStyle = '#2c2c2c'
+    ctx.fillRect(0, 0, this._cssWidth, this._cssHeight)
 
-    if (this.mood === 'sleeping') {
-      const bob = Math.sin(this._time * 2) * 0.6
-      const pulse = Math.sin(this._time * 2.5) * 0.15 + 0.85
-      ctx.fillStyle = `rgba(100, 200, 255, ${0.4 + pulse * 0.2})`
-      ctx.font = `${Math.round(3 * pulse)}px sans-serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText('z', 16.5 + bob * 0.2, 1 + bob)
-    }
+    this._particles.draw(ctx, scale, bounce)
 
-    // Golden border (25-day streak) — around Bento's head
-    if (this._bonding.hasEffect('golden')) {
-      ctx.strokeStyle = `rgba(255, 215, 0, ${0.4 + Math.sin(this._time * 2) * 0.3})`
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.roundRect(0, 2, 32, 28, 4)
-      ctx.stroke()
+    ctx.save()
+    ctx.translate(0, bounce)
+    ctx.scale(scale, scale)
+    ctx.translate(0, SPRITE_Y_OFFSET)
+    this._applyEventTransform(ctx, state)
+
+    skin.drawAura?.(ctx, skin.palette, state, this._time)
+    skin.drawAntenna(ctx, skin.palette, state, this._time)
+    skin.drawHead(ctx, skin.palette, state, this._time)
+    skin.drawEyes(ctx, skin.palette, state, this._time)
+    skin.drawAccessory(ctx, skin.palette, state, this._time)
+    if (state.bondingCrown) {
+      accessories.get('crown')?.draw(ctx, skin.palette, state, this._time)
     }
+    skin.drawOverlay?.(ctx, skin.palette, state, this._time)
 
     ctx.restore()
 
-    // Bonding milestone effects
-    if (this._bonding.hasEffect('sparkles') && Math.random() < 0.15) {
-      const angle = Math.random() * Math.PI * 2
-      const dist = 2 + Math.random() * 6
-      this._spawnParticle(16 + Math.cos(angle) * dist, 16 + Math.sin(angle) * dist, {
-        vx: Math.cos(angle) * (0.5 + Math.random() * 1),
-        vy: Math.sin(angle) * (0.5 + Math.random() * 1) - 0.5,
-        life: 0.8 + Math.random() * 0.6,
-        size: 0.4 + Math.random() * 0.4,
-        type: 'sparkle'
-      })
-    }
-
-    // Supreme sparkle particles
-    if (this._bonding.hasEffect('supreme') && Math.random() < 0.2) {
-      const angle = Math.random() * Math.PI * 2
-      const dist = 3 + Math.random() * 8
-      this._spawnParticle(16 + Math.cos(angle) * dist, 16 + Math.sin(angle) * dist, {
-        vx: Math.cos(angle) * (0.3 + Math.random() * 0.8),
-        vy: Math.sin(angle) * (0.3 + Math.random() * 0.8) - 0.3,
-        life: 1 + Math.random() * 1,
-        size: 0.5 + Math.random() * 0.5,
-        type: 'sparkle'
-      })
-    }
-
-    this._drawFirefly(ctx)
-
-    if (this._panko && this._panko.isActive()) {
-      this._panko.draw(ctx, this._scale, 8 * this._scale)
+    this.firefly.draw(ctx, scale, bounce, this._time)
+    if (this.panko?.isActive()) {
+      this.panko.draw(ctx, scale, SPRITE_Y_OFFSET * scale)
     }
   }
 
-  _drawParticles(ctx) {
-    for (const p of this._particles) {
-      const sx = p.x * this._scale
-      const sy = p.y * this._scale + this._getBounceOffset()
-
-      if (p.type === 'spark' || p.type === 'sparkle') {
-        const colors = ['#ffd54f', '#ff4081', '#4fc3f7', '#69f0ae']
-        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)]
-        ctx.globalAlpha = p.alpha
-        ctx.beginPath()
-        ctx.arc(sx, sy, p.size * this._scale, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.globalAlpha = 1
-      }
+  _applyEventTransform(ctx, state) {
+    let angle = 0
+    switch (this._event) {
+      case 'spin': angle = state.eventProgress * Math.PI * 2; break
+      case 'curious': angle = 0.08; break
+      case 'confused': angle = -0.05; break
+      case 'dizzy': angle = Math.sin(this._eventTime * 30) * 0.05 * (1 - state.eventProgress); break
+      default: return
     }
-  }
-
-  _drawFirefly(ctx) {
-    if (!this._firefly.active) return
-
-    const s = this._scale
-    const bx = this._firefly.x * s
-    const by = this._firefly.y * s + this._getBounceOffset()
-    const glow = Math.sin(this._time * 4 + this._firefly.angle) * 0.3 + 0.7
-    const fadeIn = Math.min(1, this._firefly.elapsed / 0.5)
-    const fadeOut = Math.min(1, (this._firefly.duration - this._firefly.elapsed) / 0.5)
-    const alpha = glow * fadeIn * fadeOut
-
-    // Trail
-    const trailCount = this._fireflyTrail.length
-    for (let i = 0; i < trailCount; i++) {
-      const t = this._fireflyTrail[i]
-      const tAlpha = (i / trailCount) * alpha * 0.4
-      const tSize = (0.5 + (i / trailCount) * 1.5) * s
-      ctx.fillStyle = `rgba(100, 255, 150, ${tAlpha})`
-      ctx.beginPath()
-      ctx.arc(t.x * s, t.y * s + this._getBounceOffset(), tSize, 0, Math.PI * 2)
-      ctx.fill()
-    }
-
-    // Glow
-    ctx.fillStyle = `rgba(100, 255, 150, ${alpha * 0.3})`
-    ctx.beginPath()
-    ctx.arc(bx, by, 3 * s, 0, Math.PI * 2)
-    ctx.fill()
-
-    // Core
-    ctx.fillStyle = `rgba(180, 255, 200, ${alpha})`
-    ctx.beginPath()
-    ctx.arc(bx, by, 1.5 * s, 0, Math.PI * 2)
-    ctx.fill()
+    ctx.translate(CENTER, CENTER)
+    ctx.rotate(angle)
+    ctx.translate(-CENTER, -CENTER)
   }
 
   _getBounceOffset() {
-    const idleOffset = Math.sin(this._time * 1.5) * 1.5 * this._scale
+    const s = this._scale
+    const progress = this._eventProgress()
+    const idleOffset = Math.sin(this._time * 1.5) * 1.5 * s
 
     if (this.mood === 'surprised') {
-      return -Math.sin((1 - this._surprisedTimer / 0.5) * Math.PI) * 8 * this._scale
+      return -Math.sin((1 - this._surprisedTimer / 0.5) * Math.PI) * 8 * s
     }
 
     if (this.mood === 'happy') {
       const t = this._happyTimer
       let happyOffset
       if (t > 1.2) {
-        const phase = (t - 1.2) / 0.3
-        happyOffset = -Math.sin(phase * Math.PI) * 6 * this._scale
+        happyOffset = -Math.sin(((t - 1.2) / 0.3) * Math.PI) * 6 * s
       } else {
-        happyOffset = -Math.sin(t * 8) * 1.5 * Math.max(0, t / 1.2) * this._scale
+        happyOffset = -Math.sin(t * 8) * 1.5 * Math.max(0, t / 1.2) * s
       }
       return happyOffset * this._moodBlend + idleOffset * (1 - this._moodBlend)
     }
 
-    if (this._event === 'sneeze') {
-      const p = this._eventTime / this._events.sneeze
-      if (p < 0.3) return -Math.sin(p / 0.3 * Math.PI) * 4 * this._scale
-      return Math.sin((p - 0.3) / 0.7 * Math.PI) * 2 * this._scale * (1 - (p - 0.3) / 0.7)
-    }
-
-    if (this._event === 'dizzy') {
-      const p = this._eventTime / this._dizzyDuration
-      const decay = 1 - p
-      return Math.sin(this._eventTime * 40) * 3 * this._scale * decay
-    }
-
-    if (this._event === 'excited') {
-      const blend = (1 - Math.cos((this._eventTime / this._events.excited) * Math.PI)) / 2
-      return Math.sin(this._eventTime * 20) * 2 * this._scale * blend
+    switch (this._event) {
+      case 'sneeze':
+        if (progress < 0.3) return -Math.sin((progress / 0.3) * Math.PI) * 4 * s
+        return Math.sin(((progress - 0.3) / 0.7) * Math.PI) * 2 * s * (1 - (progress - 0.3) / 0.7)
+      case 'dizzy':
+        return Math.sin(this._eventTime * 40) * 3 * s * (1 - progress)
+      case 'excited':
+        return Math.sin(this._eventTime * 20) * 2 * s * ((1 - Math.cos(progress * Math.PI)) / 2)
     }
 
     if (this.mood === 'sleeping') {
-      return Math.sin(this._time * 0.8) * 0.3 * this._scale
+      return Math.sin(this._time * 0.8) * 0.3 * s
     }
 
-    return idleOffset * (1 - this._moodBlend) + Math.sin(this._time * 3) * 1.5 * this._moodBlend * this._scale
-  }
-
-  setSkin(skin) {
-    this.skin = skin
+    return idleOffset * (1 - this._moodBlend) + Math.sin(this._time * 3) * 1.5 * this._moodBlend * s
   }
 }

@@ -8,15 +8,36 @@ function loadData() {
 }
 
 function saveData(data) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch { /* storage unavailable */ }
 }
+
+const OFFSCREEN_POINTS = [[-5, 16], [37, 16], [16, -5], [16, 37]]
+
+const randomEdge = () => OFFSCREEN_POINTS[Math.floor(Math.random() * OFFSCREEN_POINTS.length)]
+
+/**
+ * How Panko behaves as it gets to know Bento. The first stage whose `maxVisits`
+ * is >= the visit count applies. After arriving at `target`, Panko runs
+ * `arrival`: 'pause' | 'circle' | 'bump'. Circling `orbits` times (then exits,
+ * or bumps if `bumpAfter`).
+ */
+const STAGES = [
+  { maxVisits: 2, speed: 1.5, target: [16, 16], arrival: 'pause', eyes: 'neutral' },
+  { maxVisits: 5, speed: 2, target: [22, 16], arrival: 'circle', eyes: 'happy', orbits: 1 },
+  { maxVisits: 10, speed: 3, target: [16, 16], arrival: 'bump', eyes: 'happy' },
+  { maxVisits: Infinity, speed: 4, target: [10, 16], arrival: 'circle', eyes: 'suspicious', orbits: 2, bumpAfter: true }
+]
+
+const stageFor = (visits) => STAGES.find(s => visits <= s.maxVisits)
 
 export class PankoEvent {
   constructor() {
     this._data = loadData()
     this.active = false
-    this.x = 0; this.y = 0
-    this.targetX = 0; this.targetY = 0
+    this.x = 0
+    this.y = 0
+    this.targetX = 0
+    this.targetY = 0
     this.phase = 'entering'
     this.phaseTimer = 0
     this.speed = 0
@@ -26,8 +47,11 @@ export class PankoEvent {
     this.blinkTimer = 0
     this.rotation = 0
     this.visitCount = this._data.visitCount
+    this._stage = stageFor(this.visitCount + 1)
     this._bento = null
     this._bumped = false
+    this._orbitAngle = 0
+    this._orbitCount = 0
   }
 
   start(bento) {
@@ -44,46 +68,47 @@ export class PankoEvent {
     saveData(this._data)
     this.visitCount = this._data.visitCount
 
-    // Determine behavior phase
-    if (this.visitCount <= 2) {
-      this.speed = 1.5
-      // Enter from random edge
-      const edge = Math.floor(Math.random() * 4)
-      if (edge === 0) { this.x = -5; this.y = 16 }
-      else if (edge === 1) { this.x = 37; this.y = 16 }
-      else if (edge === 2) { this.x = 16; this.y = -5 }
-      else { this.x = 16; this.y = 37 }
-      this.targetX = 16; this.targetY = 16
-    } else if (this.visitCount <= 5) {
-      this.speed = 2
-      const edge = Math.floor(Math.random() * 4)
-      if (edge === 0) { this.x = -5; this.y = 16 }
-      else if (edge === 1) { this.x = 37; this.y = 16 }
-      else if (edge === 2) { this.x = 16; this.y = -5 }
-      else { this.x = 16; this.y = 37 }
-      this.targetX = 22; this.targetY = 16
-    } else if (this.visitCount <= 10) {
-      this.speed = 3
-      const edge = Math.floor(Math.random() * 4)
-      if (edge === 0) { this.x = -5; this.y = 16 }
-      else if (edge === 1) { this.x = 37; this.y = 16 }
-      else if (edge === 2) { this.x = 16; this.y = -5 }
-      else { this.x = 16; this.y = 37 }
-      this.targetX = 16; this.targetY = 16
-    } else {
-      this.speed = 4
-      const edge = Math.floor(Math.random() * 4)
-      if (edge === 0) { this.x = -5; this.y = 16 }
-      else if (edge === 1) { this.x = 37; this.y = 16 }
-      else if (edge === 2) { this.x = 16; this.y = -5 }
-      else { this.x = 16; this.y = 37 }
-      this.targetX = 10; this.targetY = 16
-    }
+    const stage = this._stage = stageFor(this.visitCount)
+    this.speed = stage.speed
+    ;[this.x, this.y] = randomEdge()
+    ;[this.targetX, this.targetY] = stage.target
 
-    if (bento && bento.sound && bento.sound.panko) {
-      bento.sound.panko()
-    }
+    bento?.sound?.panko?.()
     bento?.triggerEvent('curious')
+  }
+
+  _enter(phase, eyes = this.eyeShape) {
+    this.phase = phase
+    this.phaseTimer = 0
+    this.eyeShape = eyes
+  }
+
+  _exit() {
+    this._enter('exiting', 'neutral')
+    ;[this.targetX, this.targetY] = randomEdge()
+  }
+
+  _arrive() {
+    const stage = this._stage
+    this.x = this.targetX
+    this.y = this.targetY
+    this._orbitAngle = 0
+    this._orbitCount = 0
+
+    if (stage.arrival === 'pause') this._enter('pause', stage.eyes)
+    else if (stage.arrival === 'circle') this._enter('circling', stage.eyes)
+    else this._enter('bump', stage.eyes)
+  }
+
+  _moveToward(dt) {
+    const dx = this.targetX - this.x
+    const dy = this.targetY - this.y
+    const dist = Math.hypot(dx, dy)
+    if (dist >= 0.5) {
+      this.x += (dx / dist) * this.speed * dt * 60
+      this.y += (dy / dist) * this.speed * dt * 60
+    }
+    return dist
   }
 
   update(dt) {
@@ -96,113 +121,65 @@ export class PankoEvent {
       this.blinkTimer = 0
     }
 
-    const dx = this.targetX - this.x
-    const dy = this.targetY - this.y
-    const dist = Math.sqrt(dx * dx + dy * dy)
+    switch (this.phase) {
+      case 'entering':
+        if (this._moveToward(dt) < 0.5) this._arrive()
+        break
 
-    if (this.phase === 'entering') {
-      if (dist < 0.5) {
-        this.x = this.targetX
-        this.y = this.targetY
-        if (this.visitCount <= 2) {
-          this.phase = 'pause'
-          this.phaseTimer = 0
-          this.eyeShape = 'neutral'
-        } else if (this.visitCount <= 5) {
-          this.phase = 'circling'
-          this.phaseTimer = 0
-          this.eyeShape = 'happy'
-          this._orbitAngle = 0
-        } else if (this.visitCount <= 10) {
-          this.phase = 'bump'
-          this.phaseTimer = 0
-          this.eyeShape = 'happy'
-        } else {
-          this.phase = 'circling'
-          this.phaseTimer = 0
-          this.eyeShape = 'suspicious'
-          this._orbitAngle = 0
-          this._orbitCount = 0
-        }
-      } else {
-        this.x += (dx / dist) * this.speed * dt * 60
-        this.y += (dy / dist) * this.speed * dt * 60
-      }
+      case 'pause':
+        if (this.phaseTimer > 2) this._exit()
+        break
+
+      case 'circling':
+        this._updateCircling(dt)
+        break
+
+      case 'bump':
+        this._updateBump(dt)
+        break
+
+      case 'exiting':
+        if (this._moveToward(dt) < 0.5) this.active = false
+        break
+    }
+  }
+
+  _updateCircling(dt) {
+    this._orbitAngle += dt * 2
+    this.x = 16 + 6 * Math.cos(this._orbitAngle)
+    this.y = 16 + 6 * Math.sin(this._orbitAngle)
+
+    this.eyeTimer += dt
+    if (this.eyeTimer > 1) {
+      this.eyeShape = this.eyeShape === 'happy' ? 'neutral' : 'happy'
+      this.eyeTimer = 0
     }
 
-    if (this.phase === 'pause') {
-      if (this.phaseTimer > 2) {
-        this.phase = 'exiting'
-        this.phaseTimer = 0
-        this.eyeShape = 'neutral'
-        const edges = [[-5, 16], [37, 16], [16, -5], [16, 37]]
-        const e = edges[Math.floor(Math.random() * 4)]
-        this.targetX = e[0]
-        this.targetY = e[1]
-      }
+    if (this._orbitAngle <= Math.PI * 2) return
+    this._orbitAngle = 0
+    this._orbitCount++
+    if (this._orbitCount < this._stage.orbits) {
+      this.eyeTimer = 0
+    } else if (this._stage.bumpAfter) {
+      this._enter('bump', 'happy')
+    } else {
+      this._exit()
     }
+  }
 
-    if (this.phase === 'circling') {
-      this._orbitAngle += dt * 2
-      this.x = 16 + 6 * Math.cos(this._orbitAngle)
-      this.y = 16 + 6 * Math.sin(this._orbitAngle)
-      if (this._orbitAngle > Math.PI * 2) {
-        if (this.visitCount > 10) {
-          this._orbitCount = (this._orbitCount || 0) + 1
-          if (this._orbitCount >= 2) {
-            this.phase = 'bump'
-            this.phaseTimer = 0
-            this.eyeShape = 'happy'
-            this._orbitAngle = 0
-          } else {
-            this._orbitAngle = 0
-            this.eyeTimer = 0
-          }
-        } else {
-          this.phase = 'exiting'
-          this.phaseTimer = 0
-          this.eyeShape = 'neutral'
-          const edges = [[-5, 16], [37, 16], [16, -5], [16, 37]]
-          const e = edges[Math.floor(Math.random() * 4)]
-          this.targetX = e[0]
-          this.targetY = e[1]
-        }
+  _updateBump(dt) {
+    if (this.phaseTimer < 0.5) {
+      this.x = 15
+      this.y = 16
+      if (!this._bumped) {
+        this._bumped = true
+        this._bento?.triggerEvent('confused')
       }
-      this.eyeTimer += dt
-      if (this.eyeTimer > 1) {
-        this.eyeShape = this.eyeShape === 'happy' ? 'neutral' : 'happy'
-        this.eyeTimer = 0
-      }
-    }
-
-    if (this.phase === 'bump') {
-      if (this.phaseTimer < 0.5) {
-        this.x = 15; this.y = 16
-        if (!this._bumped) {
-          this._bumped = true
-          this._bento?.triggerEvent('confused')
-        }
-      } else if (this.phaseTimer < 1.5) {
-        this.rotation += dt * 6
-        this.eyeShape = 'happy'
-      } else {
-        this.phase = 'exiting'
-        this.phaseTimer = 0
-        this.eyeShape = 'neutral'
-        const edges = [[-5, 16], [37, 16], [16, -5], [16, 37]]
-        const e = edges[Math.floor(Math.random() * 4)]
-        this.targetX = e[0]
-        this.targetY = e[1]
-      }
-    }
-
-    if (this.phase === 'exiting') {
-      if (dist < 0.5) {
-        this.active = false
-      } else {
-        this.x += (dx / dist) * this.speed * dt * 60
-        this.y += (dy / dist) * this.speed * dt * 60
-      }
+    } else if (this.phaseTimer < 1.5) {
+      this.rotation += dt * 6
+      this.eyeShape = 'happy'
+    } else {
+      this._exit()
     }
   }
 

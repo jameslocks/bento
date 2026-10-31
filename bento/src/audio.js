@@ -1,132 +1,128 @@
+import { getAudioContext } from './audio-context.js'
+import { DEFAULTS } from './settings.js'
+
+const DEFAULT_VOICE_MODEL = DEFAULTS.voiceModel
+const BASE = import.meta.env.BASE_URL
+
 export class AudioManager {
   constructor() {
-    this._cache = new Map()
+    this._buffers = new Map() // key -> decoded AudioBuffer
+    this._missing = new Set() // keys with no bundled mp3
+    this._tts = new Map() // request signature -> decoded TTS AudioBuffer
     this._apiEndpoint = ''
     this._apiKey = ''
-    this._audioCtx = null
-  }
-
-  _ensureContext() {
-    if (!this._audioCtx) {
-      try {
-        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-      } catch {
-        // Audio not available
-      }
-    }
-    if (this._audioCtx && this._audioCtx.state === 'suspended') {
-      this._audioCtx.resume().catch(() => {})
-    }
+    this._voice = { model: DEFAULT_VOICE_MODEL, speed: 1.0, instructions: '' }
   }
 
   setApiConfig(endpoint, key) {
-    this._apiEndpoint = endpoint
-    this._apiKey = key
+    this._apiEndpoint = endpoint || ''
+    this._apiKey = key || ''
   }
 
-  async preload(keys) {
-    for (const key of keys) {
-      if (this._cache.has(key)) continue
-      try {
-        const resp = await fetch(`/audio/${key}.mp3`)
-        if (resp.ok) {
-          const blob = await resp.blob()
-          this._cache.set(key, { type: 'file', blob })
-        }
-      } catch {
-        // File not found — will use AI fallback
-      }
+  configureVoice({ model, speed, instructions } = {}) {
+    this._voice = {
+      model: model || DEFAULT_VOICE_MODEL,
+      speed: parseFloat(speed) || 1.0,
+      instructions: instructions || ''
     }
   }
 
+  /** Play a bundled letter mp3 if one exists, otherwise fall back to TTS. */
   async play(key) {
-    // Try cached audio first
-    const entry = this._cache.get(key)
-    if (entry && entry.type === 'file') {
-      this._playBuffer(entry.blob)
+    let buffer = this._buffers.get(key)
+    if (!buffer && !this._missing.has(key)) {
+      buffer = await this._loadFile(key)
+    }
+    if (buffer) {
+      this._playBuffer(buffer)
       return
     }
-
-    // Try AI fallback
-    if (this._apiEndpoint && this._apiKey) {
-      await this._playAIVoice(key)
-    }
+    await this.speak(key)
   }
 
-  async _playBuffer(blob) {
-    this._ensureContext()
-    if (!this._audioCtx) return
-
-    try {
-      const arrayBuffer = await blob.arrayBuffer()
-      const audioBuffer = await this._audioCtx.decodeAudioData(arrayBuffer)
-      const source = this._audioCtx.createBufferSource()
-      source.buffer = audioBuffer
-      source.connect(this._audioCtx.destination)
-      source.start()
-    } catch {
-      // Decode or playback failed — silently ignore
+  async speak(text, { model, speed, instructions } = {}) {
+    if (!this._apiEndpoint || !this._apiKey) return
+    const v = this._voice
+    const body = {
+      model: model || v.model,
+      input: text,
+      voice: 'alloy',
+      response_format: 'mp3',
+      speed: Math.max(0.5, Math.min(2.0, speed || v.speed))
     }
-  }
+    const instr = instructions || v.instructions
+    if (instr) {
+      body.provider = { options: { openai: { instructions: instr } } }
+    }
 
-  async _playAIVoice(text) {
-    this._ensureContext()
-    if (!this._audioCtx) return
+    const signature = JSON.stringify(body)
+    const cached = this._tts.get(signature)
+    if (cached) {
+      this._playBuffer(cached)
+      return
+    }
 
     try {
       const resp = await fetch(`${this._apiEndpoint}/audio/speech`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this._apiKey}`
+          'Authorization': `Bearer ${this._apiKey}`,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          model: 'tts-1',
-          input: text,
-          voice: 'alloy',
-          response_format: 'mp3'
-        })
-      })
-
-      if (!resp.ok) return
-
-      const blob = await resp.blob()
-      this._cache.set(text, { type: 'file', blob })
-      await this._playBuffer(blob)
-    } catch {
-      // AI voice failed — silently ignore
-    }
-  }
-
-  async speak(text, voice, instructions, speed) {
-    if (!this._apiEndpoint || !this._apiKey) return
-    this._ensureContext()
-    if (!this._audioCtx) return
-
-    const model = voice || this._voiceModel || 'openai/gpt-4o-mini-tts-2025-12-15'
-    const spd = speed || this._voiceSpeed || 1.0
-    const body = { model, input: text, voice: 'alloy', response_format: 'mp3', speed: Math.max(0.5, Math.min(2.0, spd)) }
-    if (instructions || this._voiceInstructions) {
-      body.provider = { options: { openai: { instructions: instructions || this._voiceInstructions || '' } } }
-    }
-
-    try {
-      const resp = await fetch(`${this._apiEndpoint}/audio/speech`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${this._apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
       if (!resp.ok) return
-      const blob = await resp.blob()
-      await this._playBuffer(blob)
-    } catch {}
+      const buffer = await this._decode(await resp.arrayBuffer())
+      if (buffer) {
+        this._tts.set(signature, buffer)
+        this._playBuffer(buffer)
+      }
+    } catch {
+      // Network or decode failure: stay silent
+    }
+  }
+
+  async _loadFile(key) {
+    try {
+      const resp = await fetch(`${BASE}audio/${key}.mp3`)
+      const type = resp.headers.get('content-type') || ''
+      // Dev servers may answer unknown paths with index.html and a 200.
+      if (resp.ok && !type.includes('text/html')) {
+        const buffer = await this._decode(await resp.arrayBuffer())
+        if (buffer) {
+          this._buffers.set(key, buffer)
+          return buffer
+        }
+      }
+    } catch {
+      // Offline or blocked
+    }
+    this._missing.add(key)
+    return null
+  }
+
+  async _decode(arrayBuffer) {
+    const ctx = getAudioContext()
+    if (!ctx) return null
+    try {
+      return await ctx.decodeAudioData(arrayBuffer)
+    } catch {
+      return null
+    }
+  }
+
+  _playBuffer(buffer) {
+    const ctx = getAudioContext()
+    if (!ctx) return
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    source.connect(ctx.destination)
+    source.start()
   }
 
   destroy() {
-    this._cache.clear()
-    if (this._audioCtx) {
-      this._audioCtx.close().catch(() => {})
-      this._audioCtx = null
-    }
+    this._buffers.clear()
+    this._missing.clear()
+    this._tts.clear()
   }
 }

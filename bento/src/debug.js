@@ -1,4 +1,4 @@
-import { PankoEvent } from './panko.js'
+import { BondingTracker, localDateString } from './bonding.js'
 
 const STYLES = {
   panel: `
@@ -99,10 +99,9 @@ export function initDebugPanel(bento) {
   const stateDisplay = el('div', STYLES.state)
 
   function updateState() {
-    const streak = bento._bonding ? bento._bonding.getStreak() : 0
-    const effects = bento._bonding ? bento._bonding.getActiveMilestones().join(',') : '—'
+    const d = bento.debugState()
     stateDisplay.textContent =
-      `mood: ${bento.mood} | event: ${bento._event || '—'} | acc: ${bento._accessory || '—'} | edu: ${bento._educationalMode ? 'on' : 'off'} | streak: ${streak} [${effects}]`
+      `mood: ${d.mood} | event: ${d.event || '—'} | acc: ${d.accessory || '—'} | edu: ${d.educationalMode ? 'on' : 'off'} | streak: ${d.streak} [${d.effects.join(',')}]`
   }
 
   function section(title, content) {
@@ -116,46 +115,29 @@ export function initDebugPanel(bento) {
     return el('div', STYLES.row, children)
   }
 
-  function triggerEvent(name, hasSound) {
+  function triggerEvent(name) {
     return () => {
-      bento.mood = 'idle'
-      bento._event = name
-      bento._eventTime = 0
-      if (hasSound && bento.sound && bento.sound[name]) {
-        bento.sound[name]()
-      }
-      if (bento._onEventStart) bento._onEventStart(name)
+      bento.becomeIdle()
+      bento.triggerEvent(name)
       updateState()
     }
   }
 
   function triggerMood(name) {
     return () => {
-      if (name === 'happy') {
-        bento.mood = 'happy'
-        bento._happyTimer = 1.5
-        bento._happyCooldown = 1.5
-        if (bento.sound) bento.sound.happy()
-      } else if (name === 'sleeping') {
-        bento.mood = 'sleeping'
-        bento._napDuration = 5
-      } else if (name === 'surprised') {
-        bento.mood = 'surprised'
-        bento._surprisedTimer = 0.5
-      } else {
-        bento.mood = 'idle'
-        bento._event = null
-        bento._eventTime = 0
-      }
+      if (name === 'happy') bento.makeHappy()
+      else if (name === 'sleeping') bento.sleep(5)
+      else if (name === 'surprised') bento.surprise()
+      else bento.becomeIdle()
       updateState()
     }
   }
 
   // Events
   panel.appendChild(section('Events', row([
-    btn('Sneeze', triggerEvent('sneeze', true)),
+    btn('Sneeze', triggerEvent('sneeze')),
     btn('Confused', triggerEvent('confused')),
-    btn('Glitch', triggerEvent('glitch', true)),
+    btn('Glitch', triggerEvent('glitch')),
     btn('Excited', triggerEvent('excited')),
     btn('Dizzy', () => { bento.triggerDizzy(); updateState() }),
     btn('Spin', triggerEvent('spin'))
@@ -171,25 +153,25 @@ export function initDebugPanel(bento) {
 
   // Accessories
   panel.appendChild(section('Accessories', row([
-    btn('Hat', () => { bento._setAccessory('partyhat'); updateState() }),
-    btn('Bowtie', () => { bento._setAccessory('bowtie'); updateState() }),
-    btn('Sunglasses', () => { bento._setAccessory('sunglasses'); updateState() }),
-    btn('Earmuffs', () => { bento._setAccessory('earmuffs'); updateState() }),
-    btn('Clear', () => { bento._accessory = null; bento._accessoryTimer = 0; updateState() })
+    btn('Hat', () => { bento.setAccessory('partyhat'); updateState() }),
+    btn('Bowtie', () => { bento.setAccessory('bowtie'); updateState() }),
+    btn('Sunglasses', () => { bento.setAccessory('sunglasses'); updateState() }),
+    btn('Earmuffs', () => { bento.setAccessory('earmuffs'); updateState() }),
+    btn('Clear', () => { bento.clearAccessory(); updateState() })
   ])))
 
   // Bonding
   panel.appendChild(section('Bonding', row([
-    btn('Check', () => { const r = bento._bonding.checkAndUpdate(); updateState(); console.log('Bonding:', r) }),
+    btn('Check', () => { const r = bento.bonding.checkAndUpdate(); updateState(); console.log('Bonding:', r) }),
     btn('Reset', () => { localStorage.removeItem('bento:bonding'); location.reload() }),
     btn('+1', () => {
       const data = JSON.parse(localStorage.getItem('bento:bonding') || '{"lastVisit":null,"streak":0,"notified":[]}')
       data.streak = (data.streak || 0) + 1
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
-      data.lastVisit = yesterday.toISOString().slice(0, 10)
+      data.lastVisit = localDateString(yesterday)
       localStorage.setItem('bento:bonding', JSON.stringify(data))
-      bento._bonding = new (bento._bonding.constructor)()
+      bento.bonding = new BondingTracker()
       updateState()
     })
   ])))
@@ -211,13 +193,7 @@ export function initDebugPanel(bento) {
 
   // Panko
   panel.appendChild(section('Panko', row([
-    btn('Spawn', () => {
-      if (!bento._panko || !bento._panko.isActive()) {
-        bento._panko = new PankoEvent()
-        bento._panko.start(bento)
-        updateState()
-      }
-    })
+    btn('Spawn', () => { bento.spawnPanko(); updateState() })
   ])))
 
   // TTS
@@ -227,8 +203,8 @@ export function initDebugPanel(bento) {
   panel.appendChild(section('TTS', row([
     ttsInput,
     btn('Speak', () => {
-      if (ttsInput.value && bento._audio && bento._audio.speak) {
-        bento._audio.speak(ttsInput.value)
+      if (ttsInput.value && bento.audio?.speak) {
+        bento.audio.speak(ttsInput.value)
       }
     })
   ])))

@@ -1,19 +1,12 @@
+import { getAudioContext } from './audio-context.js'
+
 export class SoundEngine {
   constructor() {
     this._ctx = null
   }
 
   _ensureContext() {
-    if (!this._ctx) {
-      try {
-        this._ctx = new (window.AudioContext || window.webkitAudioContext)()
-      } catch {
-        // Audio not available — sounds will be silent
-      }
-    }
-    if (this._ctx && this._ctx.state === 'suspended') {
-      this._ctx.resume().catch(() => {})
-    }
+    this._ctx = getAudioContext()
   }
 
   _play(frequency, duration, type = 'sine', volume = 0.15) {

@@ -208,3 +208,26 @@ html, body {
   flex-direction: row;
 }
 
+
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  max-width: min(90vw, 360px);
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #1a1a2e;
+  border: 1px solid #444;
+  color: #e0e0e0;
+  font-size: 0.9rem;
+  text-align: center;
+  z-index: 150;
+}
+
+.settings-note {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #aaa;
+  margin: 0 0 12px;
+}

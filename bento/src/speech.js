@@ -12,8 +12,8 @@ export class SpeechRecognizer {
   }
 
   setApiConfig(endpoint, key) {
-    this._apiEndpoint = endpoint
-    this._apiKey = key
+    this._apiEndpoint = endpoint || ''
+    this._apiKey = key || ''
   }
 
   start() {
@@ -38,11 +38,12 @@ export class SpeechRecognizer {
         this._silenceTimer = setTimeout(() => this.stop(), 3000)
       }
 
-      this._recognition.onerror = () => {
+      this._recognition.onerror = (event) => {
         this._stopSilenceTimer()
         this._isListening = false
         if (!this._hasResult) {
-          this._onEnd('error')
+          const denied = event?.error === 'not-allowed' || event?.error === 'service-not-allowed'
+          this._onEnd(denied ? 'denied' : event?.error === 'no-speech' ? 'timeout' : 'error')
         }
       }
 
@@ -127,7 +128,7 @@ export class SpeechRecognizer {
     } catch {
       // Mic access denied or unavailable
       this._isListening = false
-      this._onEnd('unsupported')
+      this._onEnd('denied')
     }
   }
 

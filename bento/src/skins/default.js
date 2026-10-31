@@ -1,4 +1,188 @@
 import { accessories } from '../accessories.js'
+const CX = 16
+const CY = 16
+const EYE_Y = CY + 1
+const EYE_DX = 4
+
+function dot(ctx, x, y, r) {
+  ctx.beginPath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+/** Draw a filled dot in each eye socket, with optional per-eye offsets. */
+function eyeDots(ctx, color, r, { left = [0, 0], right = [0, 0] } = {}) {
+  ctx.fillStyle = color
+  dot(ctx, CX - EYE_DX + left[0], EYE_Y + left[1], r)
+  dot(ctx, CX + EYE_DX + right[0], EYE_Y + right[1], r)
+}
+
+function drawHeart(ctx, x, y, size) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.scale(size / 2.5, size / 2.5)
+  ctx.beginPath()
+  ctx.moveTo(0, 1.5)
+  ctx.bezierCurveTo(-2.5, -1.5, -5, 0.5, 0, 3.5)
+  ctx.bezierCurveTo(5, 0.5, 2.5, -1.5, 0, 1.5)
+  ctx.fill()
+  ctx.restore()
+}
+
+function eyeBlend(s) {
+  return s.blend || (s.mood === 'happy' ? 1 : 0)
+}
+
+/**
+ * Eye renderers in priority order: the first whose `when` matches the state wins.
+ */
+const EYE_RENDERERS = [
+  {
+    when: s => s.event === 'glitch',
+    draw(ctx, palette, s) {
+      const scramble = Math.sin(s.eventTime * 80) * 6 * s.eventBlend
+      const scrambleY = Math.cos(s.eventTime * 60) * 3 * s.eventBlend
+      eyeDots(ctx, palette.eye, 1.5, {
+        left: [scramble, scrambleY],
+        right: [-scramble, -scrambleY]
+      })
+      // Static lines
+      for (let i = 0; i < 4; i++) {
+        const sy = 10 + Math.sin(s.eventTime * 100 + i * 2) * 6
+        if (Math.random() > 0.4) {
+          ctx.fillStyle = `rgba(255,255,255,${(0.2 + Math.random() * 0.3) * s.eventBlend})`
+          ctx.fillRect(6, sy, 20, 1 + Math.random() * 2)
+        }
+      }
+    }
+  },
+  {
+    when: s => s.event === 'dizzy',
+    draw(ctx, palette, s) {
+      const orbitR = 2.5
+      const angle = s.eventProgress * Math.PI * 4
+      const decay = 1 - s.eventProgress
+
+      ctx.strokeStyle = `rgba(79, 195, 247, ${0.3 * decay})`
+      ctx.lineWidth = 0.5
+      for (const dx of [-EYE_DX, EYE_DX]) {
+        ctx.beginPath()
+        ctx.arc(CX + dx, EYE_Y, orbitR, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+      eyeDots(ctx, palette.eye, 1.5, {
+        left: [Math.cos(angle) * orbitR, Math.sin(angle) * orbitR],
+        right: [Math.cos(angle + Math.PI) * orbitR, Math.sin(angle + Math.PI) * orbitR]
+      })
+    }
+  },
+  {
+    when: s => s.mood === 'sleeping',
+    draw(ctx, palette) {
+      ctx.strokeStyle = palette.eye
+      ctx.lineWidth = 1.2
+      for (const dx of [-EYE_DX, EYE_DX]) {
+        ctx.beginPath()
+        ctx.arc(CX + dx, EYE_Y + 1, 2.5, Math.PI, 0, true)
+        ctx.stroke()
+      }
+    }
+  },
+  {
+    when: s => s.mood === 'surprised',
+    draw(ctx, palette, s) {
+      const p = s.surprisedTimer / 0.5
+      eyeDots(ctx, palette.eye, 3.5 - p * 1.5)
+    }
+  },
+  {
+    when: s => s.event === 'sneeze',
+    draw(ctx, palette, s) {
+      if (s.eventProgress < 0.3) {
+        // Squeezed shut
+        ctx.strokeStyle = palette.eye
+        ctx.lineWidth = 1.2
+        for (const dx of [-EYE_DX, EYE_DX]) {
+          ctx.beginPath()
+          ctx.arc(CX + dx, EYE_Y + 2, 3.5, Math.PI * 0.7, Math.PI * 0.3, true)
+          ctx.stroke()
+        }
+      } else {
+        eyeDots(ctx, palette.eye, 1.5)
+      }
+    }
+  },
+  {
+    when: s => s.event === 'heart',
+    draw(ctx, palette, s) {
+      ctx.fillStyle = '#ff4081'
+      ctx.globalAlpha = s.eventBlend
+      drawHeart(ctx, CX - EYE_DX, EYE_Y, 2.5 * s.eventBlend)
+      drawHeart(ctx, CX + EYE_DX, EYE_Y, 2.5 * s.eventBlend)
+      ctx.globalAlpha = 1
+    }
+  },
+  {
+    when: s => s.event === 'curious',
+    draw(ctx, palette, s) {
+      const lx = (s.lookX || 0) * s.eventBlend
+      const dy = -1 - s.eventProgress * 0.5
+      eyeDots(ctx, palette.eye, 1.5 + s.eventBlend * 0.5, { left: [lx, dy], right: [lx, dy] })
+    }
+  },
+  {
+    when: s => s.event === 'excited',
+    draw(ctx, palette, s) {
+      eyeDots(ctx, palette.eye, 1.5 + s.eventBlend * 0.3)
+      if (Math.sin(s.eventTime * 15) > 0.5) {
+        ctx.fillStyle = `rgba(255,255,255,${0.9 * s.eventBlend})`
+        dot(ctx, CX - 3, EYE_Y - 1, 0.8)
+        dot(ctx, CX + 5, EYE_Y - 1, 0.8)
+      }
+    }
+  },
+  {
+    when: s => s.event === 'confused',
+    draw(ctx, palette, s) {
+      ctx.fillStyle = palette.eye
+      dot(ctx, CX - EYE_DX, EYE_Y, 1.5 + s.eventBlend * 0.5)
+      dot(ctx, CX + 5, EYE_Y + 1, 1.2 * s.eventBlend + 0.3)
+    }
+  },
+  {
+    when: s => s.blink && eyeBlend(s) < 0.5,
+    draw(ctx, palette, s) {
+      const halfWidth = s.timePeriod === 'night' ? 1.2 : 1.5
+      const lx = s.lookX || 0
+      ctx.strokeStyle = palette.eye
+      ctx.lineWidth = 1
+      for (const dx of [-EYE_DX, EYE_DX]) {
+        ctx.beginPath()
+        ctx.moveTo(CX + dx - halfWidth + lx, EYE_Y)
+        ctx.lineTo(CX + dx + halfWidth + lx, EYE_Y)
+        ctx.stroke()
+      }
+    }
+  },
+  {
+    when: () => true,
+    draw(ctx, palette, s) {
+      const blend = eyeBlend(s)
+      const lx = s.lookX || 0
+      const ly = s.lookY || 0
+      eyeDots(ctx, palette.eye, 1.5 + blend, { left: [lx, ly], right: [lx, ly] })
+
+      if (blend > 0.1) {
+        ctx.fillStyle = palette.cheek
+        ctx.globalAlpha = blend
+        dot(ctx, CX - 7, EYE_Y + 3, 2)
+        dot(ctx, CX + 7, EYE_Y + 3, 2)
+        ctx.globalAlpha = 1
+      }
+    }
+  }
+]
+
 export const defaultSkin = {
   name: 'Default',
   palette: {
@@ -51,7 +235,7 @@ export const defaultSkin = {
     const vh = 12
 
     if (state && state.event === 'rainbow') {
-      const hue = (state.eventTime / 1.2) * 360
+      const hue = state.eventProgress * 360
       ctx.fillStyle = `hsl(${hue}, 100%, 50%)`
       ctx.globalAlpha = 0.3 + state.eventBlend * 0.7
     } else {
@@ -76,191 +260,14 @@ export const defaultSkin = {
   },
 
   drawEyes(ctx, palette, state, time) {
-    const cx = 16
-    const cy = 16
-    const eyeY = cy + 1
-    const blend = state.blend || (state.mood === 'happy' ? 1 : 0)
-
     ctx.save()
     ctx.beginPath()
     ctx.roundRect(6, 10, 20, 12, 2)
     ctx.clip()
 
-    // Glitch — scramble eye positions rapidly
-    if (state.event === 'glitch') {
-      const scramble = Math.sin(state.eventTime * 80) * 6 * state.eventBlend
-      const scrambleY = Math.cos(state.eventTime * 60) * 3 * state.eventBlend
-      ctx.fillStyle = palette.eye
-      ctx.beginPath()
-      ctx.arc(cx - 4 + scramble, eyeY + scrambleY, 1.5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(cx + 4 - scramble, eyeY - scrambleY, 1.5, 0, Math.PI * 2)
-      ctx.fill()
+    const render = EYE_RENDERERS.find(r => r.when(state))
+    render.draw(ctx, palette, state)
 
-      // Static lines
-      for (let i = 0; i < 4; i++) {
-        const sy = 10 + Math.sin(state.eventTime * 100 + i * 2) * 6
-        if (Math.random() > 0.4) {
-          ctx.fillStyle = `rgba(255,255,255,${(0.2 + Math.random() * 0.3) * state.eventBlend})`
-          ctx.fillRect(6, sy, 20, 1 + Math.random() * 2)
-        }
-      }
-    } else if (state.event === 'dizzy') {
-      const p = state.eventTime / 2.0
-      const orbitR = 2.5
-      const angle = p * Math.PI * 4
-      const decay = 1 - p
-
-      // Donut trail
-      ctx.strokeStyle = `rgba(79, 195, 247, ${0.3 * decay})`
-      ctx.lineWidth = 0.5
-      ctx.beginPath()
-      ctx.arc(cx - 4, eyeY, orbitR, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.arc(cx + 4, eyeY, orbitR, 0, Math.PI * 2)
-      ctx.stroke()
-
-      // Eye dots
-      ctx.fillStyle = palette.eye
-      ctx.beginPath()
-      ctx.arc(cx - 4 + Math.cos(angle) * orbitR, eyeY + Math.sin(angle) * orbitR, 1.5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(cx + 4 + Math.cos(angle + Math.PI) * orbitR, eyeY + Math.sin(angle + Math.PI) * orbitR, 1.5, 0, Math.PI * 2)
-      ctx.fill()
-    } else if (state.mood === 'sleeping') {
-      ctx.strokeStyle = palette.eye
-      ctx.lineWidth = 1.2
-      ctx.beginPath()
-      ctx.arc(cx - 4, eyeY + 1, 2.5, Math.PI, 0, true)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.arc(cx + 4, eyeY + 1, 2.5, Math.PI, 0, true)
-      ctx.stroke()
-    } else if (state.mood === 'surprised') {
-      const p = state.surprisedTimer / 0.5
-      const eyeR = 3.5 - p * 1.5
-      ctx.fillStyle = palette.eye
-      ctx.beginPath()
-      ctx.arc(cx - 4, eyeY, eyeR, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(cx + 4, eyeY, eyeR, 0, Math.PI * 2)
-      ctx.fill()
-    } else if (state.event === 'sneeze') {
-      const p = state.eventTime / 0.6
-      ctx.strokeStyle = palette.eye
-      ctx.lineWidth = 1.2
-      if (p < 0.3) {
-        ctx.beginPath()
-        ctx.arc(cx - 4, eyeY + 2, 3.5, Math.PI * 0.7, Math.PI * 0.3, true)
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.arc(cx + 4, eyeY + 2, 3.5, Math.PI * 0.7, Math.PI * 0.3, true)
-        ctx.stroke()
-      } else {
-        ctx.beginPath()
-        ctx.arc(cx - 4, eyeY, 1.5, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.beginPath()
-        ctx.arc(cx + 4, eyeY, 1.5, 0, Math.PI * 2)
-        ctx.fill()
-      }
-    } else if (state.event === 'heart') {
-      ctx.fillStyle = '#ff4081'
-      ctx.globalAlpha = state.eventBlend
-      this._drawHeart(ctx, cx - 4, eyeY, 2.5 * state.eventBlend)
-      this._drawHeart(ctx, cx + 4, eyeY, 2.5 * state.eventBlend)
-      ctx.globalAlpha = 1
-    } else if (state.event === 'curious') {
-      const t = state.eventTime / 2.0
-      const lx = (state.lookX || 0) * state.eventBlend
-      ctx.fillStyle = palette.eye
-      ctx.beginPath()
-      ctx.arc(cx - 4 + lx, eyeY - 1 - t * 0.5, 1.5 + state.eventBlend * 0.5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(cx + 4 + lx, eyeY - 1 - t * 0.5, 1.5 + state.eventBlend * 0.5, 0, Math.PI * 2)
-      ctx.fill()
-    } else if (state.event === 'excited') {
-      ctx.fillStyle = palette.eye
-      ctx.beginPath()
-      ctx.arc(cx - 4, eyeY, 1.5 + state.eventBlend * 0.3, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(cx + 4, eyeY, 1.5 + state.eventBlend * 0.3, 0, Math.PI * 2)
-      ctx.fill()
-      const sparkle = Math.sin(state.eventTime * 15) > 0.5
-      if (sparkle) {
-        ctx.fillStyle = `rgba(255,255,255,${0.9 * state.eventBlend})`
-        ctx.beginPath()
-        ctx.arc(cx - 3, eyeY - 1, 0.8, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.beginPath()
-        ctx.arc(cx + 5, eyeY - 1, 0.8, 0, Math.PI * 2)
-        ctx.fill()
-      }
-    } else if (state.event === 'confused') {
-      ctx.fillStyle = palette.eye
-      ctx.beginPath()
-      ctx.arc(cx - 4, eyeY, 1.5 + state.eventBlend * 0.5, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(cx + 5, eyeY + 1, 1.2 * state.eventBlend + 0.3, 0, Math.PI * 2)
-      ctx.fill()
-    } else if (state.blink && blend < 0.5) {
-      const isNight = state.timePeriod === 'night'
-      const ew = isNight ? 1.2 : 1.5
-      ctx.strokeStyle = palette.eye
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(cx - 4 - ew + (state.lookX || 0), eyeY)
-      ctx.lineTo(cx - 4 + ew + (state.lookX || 0), eyeY)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(cx + 4 - ew + (state.lookX || 0), eyeY)
-      ctx.lineTo(cx + 4 + ew + (state.lookX || 0), eyeY)
-      ctx.stroke()
-    } else {
-      const eyeR = 1.5 + blend * 1.0
-      const lx = state.lookX || 0
-      const ly = state.lookY || 0
-
-      ctx.fillStyle = palette.eye
-      ctx.beginPath()
-      ctx.arc(cx - 4 + lx, eyeY + ly, eyeR, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(cx + 4 + lx, eyeY + ly, eyeR, 0, Math.PI * 2)
-      ctx.fill()
-
-      if (blend > 0.1) {
-        ctx.fillStyle = palette.cheek
-        ctx.globalAlpha = blend
-        ctx.beginPath()
-        ctx.arc(cx - 7, eyeY + 3, 2, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.beginPath()
-        ctx.arc(cx + 7, eyeY + 3, 2, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.globalAlpha = 1
-      }
-    }
-
-    ctx.restore()
-  },
-
-  _drawHeart(ctx, x, y, size) {
-    ctx.save()
-    ctx.translate(x, y)
-    ctx.scale(size / 2.5, size / 2.5)
-    ctx.beginPath()
-    ctx.moveTo(0, 1.5)
-    ctx.bezierCurveTo(-2.5, -1.5, -5, 0.5, 0, 3.5)
-    ctx.bezierCurveTo(5, 0.5, 2.5, -1.5, 0, 1.5)
-    ctx.fill()
     ctx.restore()
   },
 
@@ -296,6 +303,41 @@ export const defaultSkin = {
       ctx.ellipse(0, 0, 5, 2, 0, 0, Math.PI * 2)
       ctx.fill()
       ctx.restore()
+    }
+  },
+
+  /** Drawn behind the head: the 100-day "supreme" aura. */
+  drawAura(ctx, palette, state, time) {
+    if (!state.supreme) return
+    ctx.save()
+    ctx.globalAlpha = 0.2
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = `hsl(${(time * 30 + i * 90) % 360}, 100%, 70%)`
+      ctx.beginPath()
+      ctx.arc(CX, CY, 6 + i * 2, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.restore()
+  },
+
+  /** Drawn over everything: sleeping "z" and the 25-day golden border. */
+  drawOverlay(ctx, palette, state, time) {
+    if (state.mood === 'sleeping') {
+      const bob = Math.sin(time * 2) * 0.6
+      const pulse = Math.sin(time * 2.5) * 0.15 + 0.85
+      ctx.fillStyle = `rgba(100, 200, 255, ${0.4 + pulse * 0.2})`
+      ctx.font = `${Math.round(3 * pulse)}px sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('z', 16.5 + bob * 0.2, 1 + bob)
+    }
+
+    if (state.golden) {
+      ctx.strokeStyle = `rgba(255, 215, 0, ${0.4 + Math.sin(time * 2) * 0.3})`
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.roundRect(0, 2, 32, 28, 4)
+      ctx.stroke()
     }
   },
 
